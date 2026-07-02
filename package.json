@@ -1,8 +1,8 @@
 {
   "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
-  "description": "Refactor Markdown by extracting selected content into a new linked file.",
-  "version": "0.0.1",
+  "description": "Refactor Markdown by extracting content and spacing mixed CJK/English text.",
+  "version": "0.1.0",
   "publisher": "zedware",
   "license": "MIT",
   "repository": {
@@ -16,7 +16,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:markdownRefactor.extractSelectionToFile"
+    "onCommand:markdownRefactor.extractSelectionToFile",
+    "onCommand:markdownRefactor.spaceCjkAndEnglish"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -24,6 +25,11 @@
       {
         "command": "markdownRefactor.extractSelectionToFile",
         "title": "Markdown: Extract Selection to File",
+        "category": "Markdown"
+      },
+      {
+        "command": "markdownRefactor.spaceCjkAndEnglish",
+        "title": "Markdown: Space CJK and English",
         "category": "Markdown"
       }
     ],
@@ -33,12 +39,21 @@
           "command": "markdownRefactor.extractSelectionToFile",
           "when": "editorLangId == markdown && editorHasSelection",
           "group": "1_modification"
+        },
+        {
+          "command": "markdownRefactor.spaceCjkAndEnglish",
+          "when": "editorLangId == markdown",
+          "group": "1_modification"
         }
       ],
       "commandPalette": [
         {
           "command": "markdownRefactor.extractSelectionToFile",
           "when": "editorLangId == markdown && editorHasSelection"
+        },
+        {
+          "command": "markdownRefactor.spaceCjkAndEnglish",
+          "when": "editorLangId == markdown"
         }
       ]
     },

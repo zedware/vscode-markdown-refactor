@@ -3,13 +3,22 @@ import * as vscode from "vscode";
 
 type LinkStyle = "markdown" | "embed" | "wiki";
 
+const cjkCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]";
+const halfWidthWordCharacter = "[A-Za-z0-9]";
+const cjkBeforeHalfWidthWord = new RegExp(`(${cjkCharacter})(${halfWidthWordCharacter})`, "gu");
+const halfWidthWordBeforeCjk = new RegExp(`(${halfWidthWordCharacter})(${cjkCharacter})`, "gu");
+
 export function activate(context: vscode.ExtensionContext) {
-  const disposable = vscode.commands.registerCommand(
+  const extractDisposable = vscode.commands.registerCommand(
     "markdownRefactor.extractSelectionToFile",
     extractSelectionToFile
   );
+  const spaceDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.spaceCjkAndEnglish",
+    spaceCjkAndEnglish
+  );
 
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(extractDisposable, spaceDisposable);
 }
 
 export function deactivate() {}
@@ -82,6 +91,43 @@ async function extractSelectionToFile() {
   await vscode.window.showTextDocument(targetUri);
 }
 
+async function spaceCjkAndEnglish() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const document = editor.document;
+  if (document.languageId !== "markdown") {
+    vscode.window.showWarningMessage("Open a Markdown file before spacing CJK and English text.");
+    return;
+  }
+
+  const ranges = editor.selections.some((selection) => !selection.isEmpty)
+    ? editor.selections.filter((selection) => !selection.isEmpty)
+    : [new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length))];
+
+  const replacements = ranges.map((range) => {
+    const originalText = document.getText(range);
+    return {
+      range,
+      originalText,
+      formattedText: spaceMixedWidthText(originalText)
+    };
+  });
+
+  if (replacements.every(({ originalText, formattedText }) => originalText === formattedText)) {
+    vscode.window.showInformationMessage("No CJK/English spacing changes needed.");
+    return;
+  }
+
+  await editor.edit((editBuilder) => {
+    for (const { range, formattedText } of replacements) {
+      editBuilder.replace(range, formattedText);
+    }
+  });
+}
+
 async function buildTargetUri(sourceUri: vscode.Uri, inputName: string): Promise<vscode.Uri | undefined> {
   const config = vscode.workspace.getConfiguration("markdownRefactor");
   const configuredDirectory = config.get<string>("defaultDirectory", "").trim();
@@ -126,6 +172,12 @@ function makeReplacementLink(sourceUri: vscode.Uri, targetUri: vscode.Uri): stri
   }
 
   return `[${title}](${relativePath})`;
+}
+
+function spaceMixedWidthText(value: string): string {
+  return value
+    .replace(cjkBeforeHalfWidthWord, "$1 $2")
+    .replace(halfWidthWordBeforeCjk, "$1 $2");
 }
 
 function suggestFileName(text: string): string {
