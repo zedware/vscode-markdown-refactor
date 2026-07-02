@@ -2,26 +2,100 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 type LinkStyle = "markdown" | "embed" | "wiki";
+type TextFormatter = (value: string) => string;
 
-const cjkCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]";
+interface RefactorAction extends vscode.QuickPickItem {
+  command: string;
+}
+
+const cjkLetterCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]";
+const fullWidthBoundaryCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}\\u3000-\\u303F\\uFF01-\\uFF65]";
 const halfWidthWordCharacter = "[A-Za-z0-9]";
-const cjkBeforeHalfWidthWord = new RegExp(`(${cjkCharacter})(${halfWidthWordCharacter})`, "gu");
-const halfWidthWordBeforeCjk = new RegExp(`(${halfWidthWordCharacter})(${cjkCharacter})`, "gu");
+const halfWidthPunctuationCharacter = "[,.;:!?]";
+const cjkBeforeHalfWidthWord = new RegExp(
+  `(${cjkLetterCharacter})(${halfWidthWordCharacter})`,
+  "gu"
+);
+const halfWidthWordBeforeCjk = new RegExp(
+  `(${halfWidthWordCharacter})(${cjkLetterCharacter})`,
+  "gu"
+);
+const halfWidthPunctuationBeforeWordNearFullWidth = new RegExp(
+  `(${halfWidthPunctuationCharacter})(${halfWidthWordCharacter}+)(?=${fullWidthBoundaryCharacter})`,
+  "gu"
+);
+const fullWidthBeforeHalfWidthWord = new RegExp(
+  `(${fullWidthBoundaryCharacter})(${halfWidthWordCharacter})`,
+  "gu"
+);
+const halfWidthWordBeforeFullWidth = new RegExp(
+  `(${halfWidthWordCharacter})(${fullWidthBoundaryCharacter})`,
+  "gu"
+);
 
 export function activate(context: vscode.ExtensionContext) {
+  const launcherDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.showActions",
+    showRefactorActions
+  );
   const extractDisposable = vscode.commands.registerCommand(
     "markdownRefactor.extractSelectionToFile",
     extractSelectionToFile
   );
-  const spaceDisposable = vscode.commands.registerCommand(
+  const spaceBasicDisposable = vscode.commands.registerCommand(
     "markdownRefactor.spaceCjkAndEnglish",
     spaceCjkAndEnglish
   );
+  const spaceWithPunctuationDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.spaceCjkAndEnglishWithPunctuation",
+    spaceCjkAndEnglishWithPunctuation
+  );
 
-  context.subscriptions.push(extractDisposable, spaceDisposable);
+  context.subscriptions.push(
+    launcherDisposable,
+    extractDisposable,
+    spaceBasicDisposable,
+    spaceWithPunctuationDisposable
+  );
 }
 
 export function deactivate() {}
+
+async function showRefactorActions() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || editor.document.languageId !== "markdown") {
+    vscode.window.showWarningMessage("Open a Markdown file before running Markdown Refactor.");
+    return;
+  }
+
+  const actions: RefactorAction[] = [
+    {
+      label: "Extract selection to a single Markdown file",
+      description: "Move selected text into a new linked .md file",
+      command: "markdownRefactor.extractSelectionToFile"
+    },
+    {
+      label: "Space CJK and English words",
+      description: "Add spaces at CJK/full-width and English word boundaries",
+      command: "markdownRefactor.spaceCjkAndEnglish"
+    },
+    {
+      label: "Space CJK and English words with punctuation",
+      description: "Also separates immediate prefix/suffix punctuation",
+      command: "markdownRefactor.spaceCjkAndEnglishWithPunctuation"
+    }
+  ];
+
+  const selection = await vscode.window.showQuickPick(actions, {
+    placeHolder: "Choose a Markdown refactor action"
+  });
+
+  if (!selection) {
+    return;
+  }
+
+  await vscode.commands.executeCommand(selection.command);
+}
 
 async function extractSelectionToFile() {
   const editor = vscode.window.activeTextEditor;
@@ -92,6 +166,17 @@ async function extractSelectionToFile() {
 }
 
 async function spaceCjkAndEnglish() {
+  await formatCurrentMarkdownText(spaceBasicMixedWidthText, "No CJK/English spacing changes needed.");
+}
+
+async function spaceCjkAndEnglishWithPunctuation() {
+  await formatCurrentMarkdownText(
+    spacePunctuationAwareMixedWidthText,
+    "No CJK/English punctuation spacing changes needed."
+  );
+}
+
+async function formatCurrentMarkdownText(formatter: TextFormatter, unchangedMessage: string) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
@@ -112,12 +197,12 @@ async function spaceCjkAndEnglish() {
     return {
       range,
       originalText,
-      formattedText: spaceMixedWidthText(originalText)
+      formattedText: formatter(originalText)
     };
   });
 
   if (replacements.every(({ originalText, formattedText }) => originalText === formattedText)) {
-    vscode.window.showInformationMessage("No CJK/English spacing changes needed.");
+    vscode.window.showInformationMessage(unchangedMessage);
     return;
   }
 
@@ -174,10 +259,17 @@ function makeReplacementLink(sourceUri: vscode.Uri, targetUri: vscode.Uri): stri
   return `[${title}](${relativePath})`;
 }
 
-function spaceMixedWidthText(value: string): string {
+function spaceBasicMixedWidthText(value: string): string {
   return value
     .replace(cjkBeforeHalfWidthWord, "$1 $2")
     .replace(halfWidthWordBeforeCjk, "$1 $2");
+}
+
+function spacePunctuationAwareMixedWidthText(value: string): string {
+  return value
+    .replace(halfWidthPunctuationBeforeWordNearFullWidth, "$1 $2")
+    .replace(fullWidthBeforeHalfWidthWord, "$1 $2")
+    .replace(halfWidthWordBeforeFullWidth, "$1 $2");
 }
 
 function suggestFileName(text: string): string {

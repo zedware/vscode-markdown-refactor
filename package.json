@@ -1,7 +1,7 @@
 {
   "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
-  "description": "Refactor Markdown by extracting content and spacing mixed CJK/English text.",
+  "description": "Refactor Markdown with extract and mixed-width spacing actions.",
   "version": "0.1.0",
   "publisher": "zedware",
   "license": "MIT",
@@ -16,12 +16,19 @@
     "Other"
   ],
   "activationEvents": [
+    "onCommand:markdownRefactor.showActions",
     "onCommand:markdownRefactor.extractSelectionToFile",
-    "onCommand:markdownRefactor.spaceCjkAndEnglish"
+    "onCommand:markdownRefactor.spaceCjkAndEnglish",
+    "onCommand:markdownRefactor.spaceCjkAndEnglishWithPunctuation"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "markdownRefactor.showActions",
+        "title": "Markdown: Refactor...",
+        "category": "Markdown"
+      },
       {
         "command": "markdownRefactor.extractSelectionToFile",
         "title": "Markdown: Extract Selection to File",
@@ -31,22 +38,26 @@
         "command": "markdownRefactor.spaceCjkAndEnglish",
         "title": "Markdown: Space CJK and English",
         "category": "Markdown"
+      },
+      {
+        "command": "markdownRefactor.spaceCjkAndEnglishWithPunctuation",
+        "title": "Markdown: Space CJK and English with Punctuation",
+        "category": "Markdown"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "markdownRefactor.extractSelectionToFile",
-          "when": "editorLangId == markdown && editorHasSelection",
-          "group": "1_modification"
-        },
-        {
-          "command": "markdownRefactor.spaceCjkAndEnglish",
+          "command": "markdownRefactor.showActions",
           "when": "editorLangId == markdown",
           "group": "1_modification"
         }
       ],
       "commandPalette": [
+        {
+          "command": "markdownRefactor.showActions",
+          "when": "editorLangId == markdown"
+        },
         {
           "command": "markdownRefactor.extractSelectionToFile",
           "when": "editorLangId == markdown && editorHasSelection"
@@ -54,15 +65,19 @@
         {
           "command": "markdownRefactor.spaceCjkAndEnglish",
           "when": "editorLangId == markdown"
+        },
+        {
+          "command": "markdownRefactor.spaceCjkAndEnglishWithPunctuation",
+          "when": "editorLangId == markdown"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "markdownRefactor.extractSelectionToFile",
+        "command": "markdownRefactor.showActions",
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m",
-        "when": "editorLangId == markdown && editorHasSelection"
+        "when": "editorLangId == markdown"
       }
     ],
     "configuration": {
