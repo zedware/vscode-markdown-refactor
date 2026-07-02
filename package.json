@@ -1,0 +1,84 @@
+{
+  "name": "markdown-refactor",
+  "displayName": "Markdown Refactor",
+  "description": "Refactor Markdown by extracting selected content into a new linked file.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/zedware/vscode-markdown-refactor.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:markdownRefactor.extractSelectionToFile"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "markdownRefactor.extractSelectionToFile",
+        "title": "Markdown: Extract Selection to File",
+        "category": "Markdown"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "markdownRefactor.extractSelectionToFile",
+          "when": "editorLangId == markdown && editorHasSelection",
+          "group": "1_modification"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "markdownRefactor.extractSelectionToFile",
+          "when": "editorLangId == markdown && editorHasSelection"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "markdownRefactor.extractSelectionToFile",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m",
+        "when": "editorLangId == markdown && editorHasSelection"
+      }
+    ],
+    "configuration": {
+      "title": "Markdown Refactor",
+      "properties": {
+        "markdownRefactor.linkStyle": {
+          "type": "string",
+          "enum": [
+            "markdown",
+            "embed",
+            "wiki"
+          ],
+          "default": "markdown",
+          "description": "Replacement style after extraction: markdown link, Markdown image/embed link, or wiki link."
+        },
+        "markdownRefactor.defaultDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "Optional directory, relative to the current file, where extracted Markdown files are created."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.5.3"
+  }
+}
