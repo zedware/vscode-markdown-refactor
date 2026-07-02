@@ -3,7 +3,7 @@
   "displayName": "Markdown Refactor",
   "description": "Refactor Markdown by extracting selected content into a new linked file.",
   "version": "0.0.1",
-  "publisher": "local",
+  "publisher": "zedware",
   "license": "MIT",
   "repository": {
     "type": "git",
