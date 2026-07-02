@@ -1,64 +1,61 @@
 # Markdown Refactor
 
-This VS Code extension adds refactor-style commands for Markdown.
+## Overview
 
-## Commands
+Markdown Refactor is a VS Code extension for small Markdown editing refactors:
 
-### Markdown: Refactor...
+- Extract selected Markdown into a new linked file.
+- Add spaces between CJK/full-width text and English words.
+- Convert punctuation between half-width and full-width forms.
 
-Opens an action menu for Markdown refactors.
+Repository: [zedware/vscode-markdown-refactor](https://github.com/zedware/vscode-markdown-refactor)
 
-Default keybinding: `Ctrl+Alt+M`
+## Usage
 
-Actions:
+Open a Markdown file and run:
+
+```text
+Markdown: Refactor...
+```
+
+Default shortcut:
+
+```text
+Ctrl+Alt+M
+```
+
+Available actions:
 
 1. Extract selection to a single Markdown file
 2. Space CJK and English words
 3. Space CJK and English words with punctuation
+4. Convert punctuation to full width
+5. Convert punctuation to half width
 
-### Extract Selection to File
+Spacing and punctuation actions work on the current selection. If nothing is selected, they apply to the whole Markdown document. Punctuation conversion asks for confirmation before changing the whole document and preserves leading Markdown syntax such as headings and list markers.
 
-1. Select text in a Markdown file.
-2. Run `Markdown: Refactor...`.
-3. Choose `Extract selection to a single Markdown file`.
-4. Enter a file name.
-5. The selected text is moved to the new file and replaced with a link.
+Settings:
 
-### Space CJK and English Words
+- `markdownRefactor.linkStyle`: `markdown`, `embed`, or `wiki`
+- `markdownRefactor.defaultDirectory`: optional extraction directory relative to the current file
 
-Adds spaces between adjacent CJK/full-width characters and half-width English letters or numbers.
+## Installation
 
-Examples:
-
-- `中文English中文` -> `中文 English 中文`
-- `测试VSCode插件` -> `测试 VSCode 插件`
-- `版本2发布` -> `版本 2 发布`
-
-### Space CJK and English Words with Punctuation
-
-Adds the same spaces, and also separates immediate punctuation around half-width words in mixed-width text.
-
-Example:
-
-- `,NL2SQL，` -> `, NL2SQL ，`
-
-For spacing actions, if text is selected, only the selection is changed. If there is no selection, the whole Markdown document is changed.
-
-## Development
+From VS Code Marketplace:
 
 ```powershell
-npm install
-npm run compile
-code .
+code --install-extension zedware.vscode-markdown-refactor
 ```
 
-Press `F5` in VS Code to launch an Extension Development Host.
+Or search for `Markdown Refactor` in VS Code Extensions.
 
-## Settings
+From Git source code:
 
-- `markdownRefactor.linkStyle`
-  - `markdown`: Markdown link style
-  - `embed`: Markdown embed/image link style
-  - `wiki`: `[[file]]`
-- `markdownRefactor.defaultDirectory`
-  - Optional path relative to the current file, for example `notes`.
+```powershell
+git clone git@github.com:zedware/vscode-markdown-refactor.git
+cd vscode-markdown-refactor
+npm install
+npm run compile
+npx @vscode/vsce package
+code --install-extension .\vscode-markdown-refactor-0.1.0.vsix --force
+```

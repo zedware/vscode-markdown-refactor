@@ -32,6 +32,68 @@ const halfWidthWordBeforeFullWidth = new RegExp(
   `(${halfWidthWordCharacter})(${fullWidthBoundaryCharacter})`,
   "gu"
 );
+const halfWidthToFullWidthPunctuation = new Map<string, string>([
+  ["!", "\uFF01"],
+  ["\"", "\uFF02"],
+  ["#", "\uFF03"],
+  ["$", "\uFF04"],
+  ["%", "\uFF05"],
+  ["&", "\uFF06"],
+  ["'", "\uFF07"],
+  ["(", "\uFF08"],
+  [")", "\uFF09"],
+  ["*", "\uFF0A"],
+  ["+", "\uFF0B"],
+  [",", "\uFF0C"],
+  ["-", "\uFF0D"],
+  [".", "\u3002"],
+  ["/", "\uFF0F"],
+  [":", "\uFF1A"],
+  [";", "\uFF1B"],
+  ["<", "\uFF1C"],
+  ["=", "\uFF1D"],
+  [">", "\uFF1E"],
+  ["?", "\uFF1F"],
+  ["@", "\uFF20"],
+  ["[", "\uFF3B"],
+  ["\\", "\uFF3C"],
+  ["]", "\uFF3D"],
+  ["^", "\uFF3E"],
+  ["_", "\uFF3F"],
+  ["`", "\uFF40"],
+  ["{", "\uFF5B"],
+  ["|", "\uFF5C"],
+  ["}", "\uFF5D"],
+  ["~", "\uFF5E"]
+]);
+const fullWidthToHalfWidthPunctuation = new Map<string, string>(
+  [...halfWidthToFullWidthPunctuation.entries()].map(([halfWidth, fullWidth]) => [fullWidth, halfWidth])
+);
+for (const [fullWidth, halfWidth] of [
+  ["\uFF0E", "."],
+  ["\u3001", ","],
+  ["\u300C", "\""],
+  ["\u300D", "\""],
+  ["\u300E", "\""],
+  ["\u300F", "\""],
+  ["\u201C", "\""],
+  ["\u201D", "\""],
+  ["\u2018", "'"],
+  ["\u2019", "'"],
+  ["\u3010", "["],
+  ["\u3011", "]"],
+  ["\u300A", "<"],
+  ["\u300B", ">"]
+]) {
+  fullWidthToHalfWidthPunctuation.set(fullWidth, halfWidth);
+}
+const halfWidthPunctuationPattern = makeCharacterPattern(halfWidthToFullWidthPunctuation.keys());
+const fullWidthPunctuationPattern = makeCharacterPattern(fullWidthToHalfWidthPunctuation.keys());
+const markdownLeadingSyntaxPattern = new RegExp(
+  "^((?:[-+*]|\\d+[.)])[ \\t]+\\[[ xX]\\][ \\t]+|(?:#{1,6}|[-+*]|\\d+[.)])(?:[ \\t]+|$))"
+);
+const fullWidthOrderedListMarkerPattern = /(^|\r?\n)([ \t]*\d+)\u3001[ \t]*/g;
+const fullWidthPunctuationSpacingPattern = /([\uFF0C\u3001\u3002\uFF1B\uFF1A\uFF01\uFF1F])[ \t]+/g;
 
 export function activate(context: vscode.ExtensionContext) {
   const launcherDisposable = vscode.commands.registerCommand(
@@ -50,12 +112,22 @@ export function activate(context: vscode.ExtensionContext) {
     "markdownRefactor.spaceCjkAndEnglishWithPunctuation",
     spaceCjkAndEnglishWithPunctuation
   );
+  const convertPunctuationToFullWidthDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.convertPunctuationToFullWidth",
+    convertPunctuationToFullWidth
+  );
+  const convertPunctuationToHalfWidthDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.convertPunctuationToHalfWidth",
+    convertPunctuationToHalfWidth
+  );
 
   context.subscriptions.push(
     launcherDisposable,
     extractDisposable,
     spaceBasicDisposable,
-    spaceWithPunctuationDisposable
+    spaceWithPunctuationDisposable,
+    convertPunctuationToFullWidthDisposable,
+    convertPunctuationToHalfWidthDisposable
   );
 }
 
@@ -83,6 +155,16 @@ async function showRefactorActions() {
       label: "Space CJK and English words with punctuation",
       description: "Also separates immediate prefix/suffix punctuation",
       command: "markdownRefactor.spaceCjkAndEnglishWithPunctuation"
+    },
+    {
+      label: "Convert punctuation to full width",
+      description: "Use CJK/full-width punctuation marks",
+      command: "markdownRefactor.convertPunctuationToFullWidth"
+    },
+    {
+      label: "Convert punctuation to half width",
+      description: "Use English/half-width punctuation marks",
+      command: "markdownRefactor.convertPunctuationToHalfWidth"
     }
   ];
 
@@ -176,7 +258,27 @@ async function spaceCjkAndEnglishWithPunctuation() {
   );
 }
 
-async function formatCurrentMarkdownText(formatter: TextFormatter, unchangedMessage: string) {
+async function convertPunctuationToFullWidth() {
+  await formatCurrentMarkdownText(
+    convertHalfWidthPunctuationToFullWidth,
+    "No half-width punctuation changes needed.",
+    true
+  );
+}
+
+async function convertPunctuationToHalfWidth() {
+  await formatCurrentMarkdownText(
+    convertFullWidthPunctuationToHalfWidth,
+    "No full-width punctuation changes needed.",
+    true
+  );
+}
+
+async function formatCurrentMarkdownText(
+  formatter: TextFormatter,
+  unchangedMessage: string,
+  confirmWholeDocument = false
+) {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     return;
@@ -188,8 +290,21 @@ async function formatCurrentMarkdownText(formatter: TextFormatter, unchangedMess
     return;
   }
 
-  const ranges = editor.selections.some((selection) => !selection.isEmpty)
-    ? editor.selections.filter((selection) => !selection.isEmpty)
+  const selectedRanges = editor.selections.filter((selection) => !selection.isEmpty);
+  if (selectedRanges.length === 0 && confirmWholeDocument) {
+    const choice = await vscode.window.showWarningMessage(
+      "No text is selected. This will convert punctuation in the whole Markdown document and may affect links or Markdown syntax.",
+      { modal: true },
+      "Convert Document"
+    );
+
+    if (choice !== "Convert Document") {
+      return;
+    }
+  }
+
+  const ranges = selectedRanges.length > 0
+    ? selectedRanges
     : [new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length))];
 
   const replacements = ranges.map((range) => {
@@ -270,6 +385,72 @@ function spacePunctuationAwareMixedWidthText(value: string): string {
     .replace(halfWidthPunctuationBeforeWordNearFullWidth, "$1 $2")
     .replace(fullWidthBeforeHalfWidthWord, "$1 $2")
     .replace(halfWidthWordBeforeFullWidth, "$1 $2");
+}
+
+function makeCharacterPattern(characters: Iterable<string>): RegExp {
+  const characterClass = [...characters].map(escapeRegExp).join("");
+  return new RegExp(`[${characterClass}]`, "gu");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[\\^$.*+?()[\]{}|\-]/g, "\\$&");
+}
+
+function convertHalfWidthPunctuationToFullWidth(value: string): string {
+  return value
+    .split(/(\r?\n)/)
+    .map((part) => {
+      if (/^\r?\n$/.test(part)) {
+        return part;
+      }
+
+      return convertHalfWidthPunctuationLineToFullWidth(part);
+    })
+    .join("");
+}
+
+function convertHalfWidthPunctuationLineToFullWidth(value: string): string {
+  const [syntaxPrefix, content] = splitMarkdownLeadingSyntax(value);
+  return `${syntaxPrefix}${convertHalfWidthPunctuationSegmentToFullWidth(content)}`;
+}
+
+function splitMarkdownLeadingSyntax(value: string): [string, string] {
+  const indentation = value.match(/^[ \t]*/)?.[0] ?? "";
+  let prefix = indentation;
+  let content = value.slice(indentation.length);
+
+  while (content.startsWith(">")) {
+    const marker = content.match(/^>[ \t]*/)?.[0] ?? ">";
+    prefix += marker;
+    content = content.slice(marker.length);
+  }
+
+  if (/^(`{3,}|~{3,})/.test(content)) {
+    return [value, ""];
+  }
+
+  const syntaxMarker = content.match(markdownLeadingSyntaxPattern)?.[0];
+  if (!syntaxMarker) {
+    return [prefix, content];
+  }
+
+  return [`${prefix}${syntaxMarker}`, content.slice(syntaxMarker.length)];
+}
+
+function convertHalfWidthPunctuationSegmentToFullWidth(value: string): string {
+  return value
+    .replace(halfWidthPunctuationPattern, (punctuation) => {
+      return halfWidthToFullWidthPunctuation.get(punctuation) ?? punctuation;
+    })
+    .replace(fullWidthPunctuationSpacingPattern, "$1");
+}
+
+function convertFullWidthPunctuationToHalfWidth(value: string): string {
+  return value
+    .replace(fullWidthOrderedListMarkerPattern, "$1$2. ")
+    .replace(fullWidthPunctuationPattern, (punctuation) => {
+      return fullWidthToHalfWidthPunctuation.get(punctuation) ?? punctuation;
+    });
 }
 
 function suggestFileName(text: string): string {

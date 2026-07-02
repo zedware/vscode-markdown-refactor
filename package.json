@@ -1,7 +1,7 @@
 {
   "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
-  "description": "Refactor Markdown with extract and mixed-width spacing actions.",
+  "description": "Refactor Markdown with extract, spacing, and punctuation conversion actions.",
   "version": "0.1.0",
   "publisher": "zedware",
   "license": "MIT",
@@ -19,7 +19,9 @@
     "onCommand:markdownRefactor.showActions",
     "onCommand:markdownRefactor.extractSelectionToFile",
     "onCommand:markdownRefactor.spaceCjkAndEnglish",
-    "onCommand:markdownRefactor.spaceCjkAndEnglishWithPunctuation"
+    "onCommand:markdownRefactor.spaceCjkAndEnglishWithPunctuation",
+    "onCommand:markdownRefactor.convertPunctuationToFullWidth",
+    "onCommand:markdownRefactor.convertPunctuationToHalfWidth"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -42,6 +44,16 @@
       {
         "command": "markdownRefactor.spaceCjkAndEnglishWithPunctuation",
         "title": "Markdown: Space CJK and English with Punctuation",
+        "category": "Markdown"
+      },
+      {
+        "command": "markdownRefactor.convertPunctuationToFullWidth",
+        "title": "Markdown: Convert Punctuation to Full Width",
+        "category": "Markdown"
+      },
+      {
+        "command": "markdownRefactor.convertPunctuationToHalfWidth",
+        "title": "Markdown: Convert Punctuation to Half Width",
         "category": "Markdown"
       }
     ],
@@ -68,6 +80,14 @@
         },
         {
           "command": "markdownRefactor.spaceCjkAndEnglishWithPunctuation",
+          "when": "editorLangId == markdown"
+        },
+        {
+          "command": "markdownRefactor.convertPunctuationToFullWidth",
+          "when": "editorLangId == markdown"
+        },
+        {
+          "command": "markdownRefactor.convertPunctuationToHalfWidth",
           "when": "editorLangId == markdown"
         }
       ]
