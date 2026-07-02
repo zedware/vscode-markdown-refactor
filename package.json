@@ -1,5 +1,5 @@
 {
-  "name": "markdown-refactor",
+  "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
   "description": "Refactor Markdown by extracting selected content into a new linked file.",
   "version": "0.0.1",
