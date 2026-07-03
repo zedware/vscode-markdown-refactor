@@ -18,6 +18,7 @@ It opens a Quick Pick action launcher. Keep new refactors behind this launcher u
 - `markdownRefactor.spaceCjkAndEnglishWithPunctuation`: also handles immediate punctuation around half-width words.
 - `markdownRefactor.convertPunctuationToFullWidth`: converts common half-width punctuation to full-width punctuation.
 - `markdownRefactor.convertPunctuationToHalfWidth`: converts common full-width punctuation to half-width punctuation.
+- `markdownRefactor.cycleTaskCheckbox`: cycles a Markdown task checkbox through `markdownRefactor.checkboxCycle` and owns `Ctrl+Alt+W`.
 
 ## Formatting Rules
 
@@ -68,13 +69,23 @@ Preservation examples:
 1. item, one -> 1. item\uff0cone
 ```
 
+## Checkbox Cycling
+
+The default checkbox cycle is `⬜ -> ⏳ -> ✅ -> ❌ -> ❗`. The command changes task markers after a Markdown list prefix, such as `- ⬜ item`, `1. ⏳ item`, or `> - ✅ quoted item`.
+
+Plain list items without a task marker are activated by inserting the first configured marker, for example `- item` becomes `- ⬜ item`. Existing legacy bracket tasks always use the bracket cycle `[ ] -> [/] -> [!] -> [-] -> [x]`, even when the configured cycle uses emoji markers. It treats `[X]` as `[x]` when cycling legacy bracket tasks.
+
+`markdownRefactor.checkboxCycle` must contain at least two unique markers. Markers can be bracketed strings, for example `[ ]`, or compact emoji/text markers without spaces, for example `⬜`.
+
+Checkbox decoration is enabled by `markdownRefactor.decorateCheckboxes`. It highlights bracket-style task markers in Markdown editors only, using marker meanings: `[ ]` todo, `[/]` in progress, `[-]` cancelled, `[x]`/`[X]` done, `[!]` important, and a fallback style for custom non-emoji markers. Emoji markers are not decorated.
+
 ## Development
 
 ```powershell
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.1.0.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.2.3.vsix --force
 ```
 
 Use `F5` in VS Code to launch an Extension Development Host.

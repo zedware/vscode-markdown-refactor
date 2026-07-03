@@ -2,7 +2,7 @@
   "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
   "description": "Refactor Markdown with extract, spacing, and punctuation conversion actions.",
-  "version": "0.1.0",
+  "version": "0.2.4",
   "publisher": "zedware",
   "license": "MIT",
   "repository": {
@@ -16,12 +16,14 @@
     "Other"
   ],
   "activationEvents": [
+    "onLanguage:markdown",
     "onCommand:markdownRefactor.showActions",
     "onCommand:markdownRefactor.extractSelectionToFile",
     "onCommand:markdownRefactor.spaceCjkAndEnglish",
     "onCommand:markdownRefactor.spaceCjkAndEnglishWithPunctuation",
     "onCommand:markdownRefactor.convertPunctuationToFullWidth",
-    "onCommand:markdownRefactor.convertPunctuationToHalfWidth"
+    "onCommand:markdownRefactor.convertPunctuationToHalfWidth",
+    "onCommand:markdownRefactor.cycleTaskCheckbox"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -54,6 +56,11 @@
       {
         "command": "markdownRefactor.convertPunctuationToHalfWidth",
         "title": "Markdown: Convert Punctuation to Half Width",
+        "category": "Markdown"
+      },
+      {
+        "command": "markdownRefactor.cycleTaskCheckbox",
+        "title": "Markdown: Cycle Task Checkbox",
         "category": "Markdown"
       }
     ],
@@ -89,6 +96,10 @@
         {
           "command": "markdownRefactor.convertPunctuationToHalfWidth",
           "when": "editorLangId == markdown"
+        },
+        {
+          "command": "markdownRefactor.cycleTaskCheckbox",
+          "when": "editorLangId == markdown"
         }
       ]
     },
@@ -97,6 +108,12 @@
         "command": "markdownRefactor.showActions",
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m",
+        "when": "editorLangId == markdown"
+      },
+      {
+        "command": "markdownRefactor.cycleTaskCheckbox",
+        "key": "ctrl+alt+w",
+        "mac": "cmd+alt+w",
         "when": "editorLangId == markdown"
       }
     ],
@@ -117,6 +134,28 @@
           "type": "string",
           "default": "",
           "description": "Optional directory, relative to the current file, where extracted Markdown files are created."
+        },
+        "markdownRefactor.checkboxCycle": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(\\[[^\\]\\r\\n]*\\]|\\S+)$"
+          },
+          "uniqueItems": true,
+          "minItems": 2,
+          "default": [
+            "⬜",
+            "⏳",
+            "✅",
+            "❌",
+            "❗"
+          ],
+          "description": "Ordered task marker states used by Markdown: Cycle Task Checkbox. Use bracketed markers or compact emoji/text markers without spaces."
+        },
+        "markdownRefactor.decorateCheckboxes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Highlight configured Markdown task checkbox states in the editor."
         }
       }
     }

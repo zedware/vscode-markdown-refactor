@@ -3,9 +3,16 @@ import * as vscode from "vscode";
 
 type LinkStyle = "markdown" | "embed" | "wiki";
 type TextFormatter = (value: string) => string;
+type CheckboxDecorationKind = "todo" | "progress" | "cancelled" | "done" | "important" | "custom";
 
 interface RefactorAction extends vscode.QuickPickItem {
   command: string;
+}
+
+interface CheckboxTokenMatch {
+  token: string;
+  start: number;
+  end: number;
 }
 
 const cjkLetterCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]";
@@ -90,12 +97,20 @@ for (const [fullWidth, halfWidth] of [
 const halfWidthPunctuationPattern = makeCharacterPattern(halfWidthToFullWidthPunctuation.keys());
 const fullWidthPunctuationPattern = makeCharacterPattern(fullWidthToHalfWidthPunctuation.keys());
 const markdownLeadingSyntaxPattern = new RegExp(
-  "^((?:[-+*]|\\d+[.)])[ \\t]+\\[[ xX]\\][ \\t]+|(?:#{1,6}|[-+*]|\\d+[.)])(?:[ \\t]+|$))"
+  "^((?:[-+*]|\\d+[.)])[ \\t]+\\[[^\\]\\r\\n]*\\][ \\t]+|(?:#{1,6}|[-+*]|\\d+[.)])(?:[ \\t]+|$))"
 );
 const fullWidthOrderedListMarkerPattern = /(^|\r?\n)([ \t]*\d+)\u3001[ \t]*/g;
 const fullWidthPunctuationSpacingPattern = /([\uFF0C\u3001\u3002\uFF1B\uFF1A\uFF01\uFF1F])[ \t]+/g;
+const defaultCheckboxCycle = ["\u2B1C", "\u23F3", "\u2705", "\u274C", "\u2757"];
+const legacyCheckboxCycle = ["[ ]", "[/]", "[!]", "[-]", "[x]"];
+const checkboxTokenPattern = /^(?:\[[^\]\r\n]*\]|\S+)$/u;
+const emojiMarkerPattern = /\p{Extended_Pictographic}/u;
+const taskLinePrefixPattern = /^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-+*]|\d+[.)])[ \t]+/;
+const checkboxDecorationTypes = new Map<CheckboxDecorationKind, vscode.TextEditorDecorationType>();
 
 export function activate(context: vscode.ExtensionContext) {
+  initializeCheckboxDecorations(context);
+
   const launcherDisposable = vscode.commands.registerCommand(
     "markdownRefactor.showActions",
     showRefactorActions
@@ -120,6 +135,26 @@ export function activate(context: vscode.ExtensionContext) {
     "markdownRefactor.convertPunctuationToHalfWidth",
     convertPunctuationToHalfWidth
   );
+  const cycleTaskCheckboxDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.cycleTaskCheckbox",
+    cycleTaskCheckbox
+  );
+  const activeEditorDisposable = vscode.window.onDidChangeActiveTextEditor(() => {
+    updateVisibleCheckboxDecorations();
+  });
+  const documentChangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
+    if (vscode.window.visibleTextEditors.some((editor) => editor.document === event.document)) {
+      updateVisibleCheckboxDecorations();
+    }
+  });
+  const configurationChangeDisposable = vscode.workspace.onDidChangeConfiguration((event) => {
+    if (
+      event.affectsConfiguration("markdownRefactor.checkboxCycle") ||
+      event.affectsConfiguration("markdownRefactor.decorateCheckboxes")
+    ) {
+      updateVisibleCheckboxDecorations();
+    }
+  });
 
   context.subscriptions.push(
     launcherDisposable,
@@ -127,8 +162,14 @@ export function activate(context: vscode.ExtensionContext) {
     spaceBasicDisposable,
     spaceWithPunctuationDisposable,
     convertPunctuationToFullWidthDisposable,
-    convertPunctuationToHalfWidthDisposable
+    convertPunctuationToHalfWidthDisposable,
+    cycleTaskCheckboxDisposable,
+    activeEditorDisposable,
+    documentChangeDisposable,
+    configurationChangeDisposable
   );
+
+  updateVisibleCheckboxDecorations();
 }
 
 export function deactivate() {}
@@ -165,6 +206,11 @@ async function showRefactorActions() {
       label: "Convert punctuation to half width",
       description: "Use English/half-width punctuation marks",
       command: "markdownRefactor.convertPunctuationToHalfWidth"
+    },
+    {
+      label: "Cycle task checkbox",
+      description: "Replace the task checkbox with the next configured state",
+      command: "markdownRefactor.cycleTaskCheckbox"
     }
   ];
 
@@ -272,6 +318,338 @@ async function convertPunctuationToHalfWidth() {
     "No full-width punctuation changes needed.",
     true
   );
+}
+
+async function cycleTaskCheckbox() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const document = editor.document;
+  if (document.languageId !== "markdown") {
+    vscode.window.showWarningMessage("Open a Markdown file before cycling a task checkbox.");
+    return;
+  }
+
+  const cycle = getCheckboxCycle();
+  if (!cycle) {
+    vscode.window.showWarningMessage(
+      "Configure markdownRefactor.checkboxCycle as at least two unique markers, such as \u2B1C, \u23F3, \u2705, \u274C, \u2757."
+    );
+    return;
+  }
+
+  const activeLines = new Map<number, vscode.Selection>();
+  for (const selection of editor.selections) {
+    if (!activeLines.has(selection.active.line)) {
+      activeLines.set(selection.active.line, selection);
+    }
+  }
+
+  const replacements: Array<{ range: vscode.Range; value: string }> = [];
+  for (const [lineNumber] of activeLines) {
+    const line = document.lineAt(lineNumber);
+    const replacement = makeTaskMarkerReplacement(line.text, lineNumber, cycle);
+    if (replacement) {
+      replacements.push(replacement);
+    }
+  }
+
+  if (replacements.length === 0) {
+    vscode.window.showWarningMessage("Place the cursor on a Markdown list item or task marker.");
+    return;
+  }
+
+  await editor.edit((editBuilder) => {
+    for (const { range, value } of replacements) {
+      editBuilder.replace(range, value);
+    }
+  });
+}
+
+function makeTaskMarkerReplacement(
+  lineText: string,
+  lineNumber: number,
+  cycle: string[]
+): { range: vscode.Range; value: string } | undefined {
+  const prefixMatch = lineText.match(taskLinePrefixPattern);
+  if (!prefixMatch) {
+    return undefined;
+  }
+
+  const markerStart = prefixMatch[0].length;
+  const legacyMatch = findTaskCheckboxTokenAt(lineText, markerStart, legacyCheckboxCycle);
+  if (legacyMatch) {
+    return makeCycleReplacement(lineNumber, legacyMatch, legacyCheckboxCycle, lineText);
+  }
+
+  const configuredMatch = findTaskCheckboxTokenAt(lineText, markerStart, cycle);
+  if (configuredMatch) {
+    return makeCycleReplacement(lineNumber, configuredMatch, cycle, lineText);
+  }
+
+  const defaultEmojiMatch = findTaskCheckboxTokenAt(lineText, markerStart, defaultCheckboxCycle);
+  if (defaultEmojiMatch) {
+    return makeCycleReplacement(lineNumber, defaultEmojiMatch, defaultCheckboxCycle, lineText);
+  }
+
+  const activationCycle = isLegacyCheckboxCycle(cycle) ? defaultCheckboxCycle : cycle;
+  return {
+    range: new vscode.Range(lineNumber, markerStart, lineNumber, markerStart),
+    value: `${activationCycle[0]} `
+  };
+}
+
+function makeCycleReplacement(
+  lineNumber: number,
+  match: CheckboxTokenMatch,
+  cycle: string[],
+  lineText: string
+): { range: vscode.Range; value: string } | undefined {
+  const cycleIndex = getCheckboxCycleIndex(cycle, match.token);
+  if (cycleIndex === -1) {
+    return undefined;
+  }
+
+  if (cycle !== legacyCheckboxCycle && cycleIndex === cycle.length - 1) {
+    let end = match.end;
+    if (end < lineText.length && lineText.charAt(end) === " ") {
+      end++;
+    }
+    return {
+      range: new vscode.Range(lineNumber, match.start, lineNumber, end),
+      value: ""
+    };
+  }
+
+  return {
+    range: new vscode.Range(lineNumber, match.start, lineNumber, match.end),
+    value: cycle[(cycleIndex + 1) % cycle.length]
+  };
+}
+
+function isLegacyCheckboxCycle(cycle: string[]): boolean {
+  return cycle.length === legacyCheckboxCycle.length && cycle.every((token, index) => token === legacyCheckboxCycle[index]);
+}
+
+function getCheckboxCycle(): string[] | undefined {
+  const config = vscode.workspace.getConfiguration("markdownRefactor");
+  const configuredCycle = config.get<unknown>("checkboxCycle", defaultCheckboxCycle);
+  if (!Array.isArray(configuredCycle)) {
+    return undefined;
+  }
+
+  const cycle = configuredCycle.filter((value): value is string => typeof value === "string" && value.length > 0);
+  const uniqueCycle = [...new Set(cycle)];
+  if (uniqueCycle.length !== cycle.length || uniqueCycle.length < 2) {
+    return undefined;
+  }
+
+  if (uniqueCycle.some((value) => !checkboxTokenPattern.test(value))) {
+    return undefined;
+  }
+
+  return uniqueCycle;
+}
+
+function findTaskCheckboxToken(lineText: string, cycle: string[]): CheckboxTokenMatch | undefined {
+  const prefixMatch = lineText.match(taskLinePrefixPattern);
+  if (!prefixMatch) {
+    return undefined;
+  }
+
+  return findTaskCheckboxTokenAt(lineText, prefixMatch[0].length, cycle);
+}
+
+function findTaskCheckboxTokenAt(
+  lineText: string,
+  markerStart: number,
+  cycle: string[]
+): CheckboxTokenMatch | undefined {
+  const token = getCheckboxSearchTokens(cycle)
+    .sort((left, right) => right.length - left.length)
+    .find((candidate) => lineText.startsWith(candidate, markerStart));
+  if (!token) {
+    return undefined;
+  }
+
+  return {
+    token,
+    start: markerStart,
+    end: markerStart + token.length
+  };
+}
+
+function findAnyTaskCheckboxToken(lineText: string, cycles: string[][]): CheckboxTokenMatch | undefined {
+  const prefixMatch = lineText.match(taskLinePrefixPattern);
+  if (!prefixMatch) {
+    return undefined;
+  }
+
+  const markerStart = prefixMatch[0].length;
+  for (const cycle of cycles) {
+    const match = findTaskCheckboxTokenAt(lineText, markerStart, cycle);
+    if (match) {
+      return match;
+    }
+  }
+
+  return undefined;
+}
+
+function getCheckboxSearchTokens(cycle: string[]): string[] {
+  const tokens = [...cycle];
+  if (cycle.includes("[x]") && !tokens.includes("[X]")) {
+    tokens.push("[X]");
+  }
+
+  return tokens;
+}
+
+function getCheckboxCycleIndex(cycle: string[], token: string): number {
+  const exactIndex = cycle.indexOf(token);
+  if (exactIndex !== -1) {
+    return exactIndex;
+  }
+
+  if (token === "[X]") {
+    return cycle.indexOf("[x]");
+  }
+
+  return -1;
+}
+function initializeCheckboxDecorations(context: vscode.ExtensionContext) {
+  const decorationOptions: Record<CheckboxDecorationKind, vscode.DecorationRenderOptions> = {
+    todo: {
+      color: "#8b949e",
+      backgroundColor: "rgba(139, 148, 158, 0.16)",
+      border: "1px solid rgba(139, 148, 158, 0.45)",
+      borderRadius: "3px",
+      fontWeight: "700"
+    },
+    progress: {
+      color: "#d29922",
+      backgroundColor: "rgba(210, 153, 34, 0.18)",
+      border: "1px solid rgba(210, 153, 34, 0.45)",
+      borderRadius: "3px",
+      fontWeight: "700"
+    },
+    cancelled: {
+      color: "#f85149",
+      backgroundColor: "rgba(248, 81, 73, 0.14)",
+      border: "1px solid rgba(248, 81, 73, 0.42)",
+      borderRadius: "3px",
+      fontWeight: "700",
+      textDecoration: "line-through"
+    },
+    done: {
+      color: "#3fb950",
+      backgroundColor: "rgba(63, 185, 80, 0.16)",
+      border: "1px solid rgba(63, 185, 80, 0.45)",
+      borderRadius: "3px",
+      fontWeight: "700"
+    },
+    important: {
+      color: "#ff7b72",
+      backgroundColor: "rgba(255, 123, 114, 0.18)",
+      border: "1px solid rgba(255, 123, 114, 0.48)",
+      borderRadius: "3px",
+      fontWeight: "700"
+    },
+    custom: {
+      color: "#79c0ff",
+      backgroundColor: "rgba(121, 192, 255, 0.16)",
+      border: "1px solid rgba(121, 192, 255, 0.45)",
+      borderRadius: "3px",
+      fontWeight: "700"
+    }
+  };
+
+  for (const [kind, options] of Object.entries(decorationOptions) as Array<[CheckboxDecorationKind, vscode.DecorationRenderOptions]>) {
+    const decorationType = vscode.window.createTextEditorDecorationType({
+      ...options,
+      rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+    });
+    checkboxDecorationTypes.set(kind, decorationType);
+    context.subscriptions.push(decorationType);
+  }
+}
+
+function updateVisibleCheckboxDecorations() {
+  for (const editor of vscode.window.visibleTextEditors) {
+    updateCheckboxDecorations(editor);
+  }
+}
+
+function updateCheckboxDecorations(editor: vscode.TextEditor) {
+  if (editor.document.languageId !== "markdown" || !isCheckboxDecorationEnabled()) {
+    clearCheckboxDecorations(editor);
+    return;
+  }
+
+  const cycle = getCheckboxCycle();
+  if (!cycle) {
+    clearCheckboxDecorations(editor);
+    return;
+  }
+
+  const rangesByKind = new Map<CheckboxDecorationKind, vscode.Range[]>();
+  for (const kind of checkboxDecorationTypes.keys()) {
+    rangesByKind.set(kind, []);
+  }
+
+  for (let lineNumber = 0; lineNumber < editor.document.lineCount; lineNumber += 1) {
+    const line = editor.document.lineAt(lineNumber);
+    const match = findAnyTaskCheckboxToken(line.text, [legacyCheckboxCycle, cycle, defaultCheckboxCycle]);
+    if (!match) {
+      continue;
+    }
+
+    if (isEmojiCheckboxToken(match.token)) {
+      continue;
+    }
+
+    const kind = getCheckboxDecorationKind(match.token);
+    rangesByKind.get(kind)?.push(new vscode.Range(lineNumber, match.start, lineNumber, match.end));
+  }
+
+  for (const [kind, decorationType] of checkboxDecorationTypes) {
+    editor.setDecorations(decorationType, rangesByKind.get(kind) ?? []);
+  }
+}
+
+function clearCheckboxDecorations(editor: vscode.TextEditor) {
+  for (const decorationType of checkboxDecorationTypes.values()) {
+    editor.setDecorations(decorationType, []);
+  }
+}
+
+function isCheckboxDecorationEnabled(): boolean {
+  const config = vscode.workspace.getConfiguration("markdownRefactor");
+  return config.get<boolean>("decorateCheckboxes", true);
+}
+
+function isEmojiCheckboxToken(token: string): boolean {
+  return emojiMarkerPattern.test(token);
+}
+
+function getCheckboxDecorationKind(token: string): CheckboxDecorationKind {
+  switch (token) {
+    case "[ ]":
+      return "todo";
+    case "[/]":
+      return "progress";
+    case "[-]":
+      return "cancelled";
+    case "[x]":
+    case "[X]":
+      return "done";
+    case "[!]":
+      return "important";
+    default:
+      return "custom";
+  }
 }
 
 async function formatCurrentMarkdownText(

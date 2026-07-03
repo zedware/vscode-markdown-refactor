@@ -7,6 +7,8 @@ Markdown Refactor is a VS Code extension for small Markdown editing refactors:
 - Extract selected Markdown into a new linked file.
 - Add spaces between CJK/full-width text and English words.
 - Convert punctuation between half-width and full-width forms.
+- Cycle Markdown task markers through a configurable state list.
+- Highlight bracket-style task checkbox states while editing raw Markdown.
 
 Repository: [zedware/vscode-markdown-refactor](https://github.com/zedware/vscode-markdown-refactor)
 
@@ -31,13 +33,45 @@ Available actions:
 3. Space CJK and English words with punctuation
 4. Convert punctuation to full width
 5. Convert punctuation to half width
+6. Cycle task checkbox
 
 Spacing and punctuation actions work on the current selection. If nothing is selected, they apply to the whole Markdown document. Punctuation conversion asks for confirmation before changing the whole document and preserves leading Markdown syntax such as headings and list markers.
+
+Task marker cycling works on the list line at the cursor, including multiple cursors. Default shortcut: `Ctrl+Alt+W`. Plain list items are activated with the first configured emoji marker, while existing bracket-style task markers keep cycling through `[ ]`, `[/]`, `[!]`, `[-]`, `[x]`.
 
 Settings:
 
 - `markdownRefactor.linkStyle`: `markdown`, `embed`, or `wiki`
 - `markdownRefactor.defaultDirectory`: optional extraction directory relative to the current file
+- `markdownRefactor.checkboxCycle`: ordered task marker states, default `⬜`, `⏳`, `✅`, `❌`, `❗`
+- `markdownRefactor.decorateCheckboxes`: highlight bracket-style checkbox states in the editor
+
+Checkbox settings in `settings.json`:
+
+```json
+{
+  "markdownRefactor.checkboxCycle": ["⬜", "⏳", "✅", "❌", "❗"],
+  "markdownRefactor.decorateCheckboxes": true
+}
+```
+
+Default marker meanings:
+
+- `⬜`: TODO
+- `⏳`: In Progress
+- `✅`: Done
+- `❌`: Cancelled
+- `❗`: Important
+
+You can use the legacy bracket cycle too:
+
+```json
+{
+  "markdownRefactor.checkboxCycle": ["[ ]", "[/]", "[!]", "[-]", "[x]"]
+}
+```
+
+Decoration highlighting can be turned on or off with `markdownRefactor.decorateCheckboxes`. Bracket-style markers use built-in status colors, custom non-emoji markers use a fallback highlight style, and emoji markers are not decorated.
 
 ## Installation
 
@@ -57,5 +91,5 @@ cd vscode-markdown-refactor
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.1.0.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.2.3.vsix --force
 ```
