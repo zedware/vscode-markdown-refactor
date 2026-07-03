@@ -102,7 +102,7 @@ const markdownLeadingSyntaxPattern = new RegExp(
 const fullWidthOrderedListMarkerPattern = /(^|\r?\n)([ \t]*\d+)\u3001[ \t]*/g;
 const fullWidthPunctuationSpacingPattern = /([\uFF0C\u3001\u3002\uFF1B\uFF1A\uFF01\uFF1F])[ \t]+/g;
 const defaultCheckboxCycle = ["\u2B1C", "\u23F3", "\u2705", "\u274C", "\u2757"];
-const legacyCheckboxCycle = ["[ ]", "[/]", "[!]", "[-]", "[x]"];
+const legacyCheckboxCycle = ["[ ]", "[/]", "[x]", "[-]", "[!]"];
 const checkboxTokenPattern = /^(?:\[[^\]\r\n]*\]|\S+)$/u;
 const emojiMarkerPattern = /\p{Extended_Pictographic}/u;
 const taskLinePrefixPattern = /^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-+*]|\d+[.)])[ \t]+/;
@@ -170,6 +170,12 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   updateVisibleCheckboxDecorations();
+
+  return {
+    extendMarkdownIt(md: any) {
+      return md.use(customTaskListsPlugin);
+    }
+  };
 }
 
 export function deactivate() {}
@@ -880,4 +886,107 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
 function isPathInside(candidatePath: string, parentPath: string): boolean {
   const relative = path.relative(parentPath, candidatePath);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function customTaskListsPlugin(md: any) {
+  md.core.ruler.after("inline", "custom-task-lists", (state: any) => {
+    const tokens = state.tokens;
+    for (let i = 2; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (token.type !== "inline") {
+        continue;
+      }
+
+      // The VS Code built-in markdown-it-task-lists plugin runs before our plugin.
+      // It converts `[ ]` and `[x]` into `<input type="checkbox">` html_inline tokens.
+      if (token.children && token.children.length > 0) {
+        const pOpen = tokens[i - 1];
+        if (!pOpen || pOpen.type !== "paragraph_open") continue;
+
+        let liOpenIndex = i - 2;
+        while (liOpenIndex >= 0 && tokens[liOpenIndex].type !== "list_item_open") {
+          liOpenIndex--;
+        }
+        const liOpen = tokens[liOpenIndex];
+        if (!liOpen || liOpen.type !== "list_item_open") continue;
+
+        const firstChild = token.children[0];
+
+        // Case 1: Already processed by markdown-it-task-lists
+        if (firstChild.type === "html_inline" && firstChild.content.includes('type="checkbox"')) {
+          const isChecked = firstChild.content.includes("checked");
+          const marker = isChecked ? "x" : " ";
+          const className = isChecked ? "done" : "todo";
+          
+          firstChild.content = `<span class="task-list-item-checkbox custom-checkbox ${className}">${marker}</span>`;
+          continue;
+        }
+
+        // Case 2: Unprocessed text (custom markers)
+        if (firstChild.type === "text") {
+          const textContent = firstChild.content;
+          
+          const cycle = getCheckboxCycle() || defaultCheckboxCycle;
+          const allMarkers = [...new Set([...legacyCheckboxCycle, ...cycle, ...defaultCheckboxCycle])];
+          if (!allMarkers.includes("[X]")) allMarkers.push("[X]");
+
+          let matchedMarker: string | undefined;
+          let matchLength = 0;
+          let isEmoji = false;
+
+          for (const marker of allMarkers) {
+            if (textContent.startsWith(marker + " ") || textContent.startsWith(marker + "\t")) {
+              matchedMarker = marker;
+              matchLength = marker.length + 1;
+              isEmoji = !marker.startsWith("[");
+              break;
+            }
+          }
+          
+          if (matchedMarker) {
+            firstChild.content = textContent.slice(matchLength);
+
+            const checkboxToken = new state.Token("html_inline", "", 0);
+            
+            if (isEmoji) {
+              checkboxToken.content = `<span class="task-list-item-checkbox custom-checkbox emoji-checkbox">${matchedMarker}</span>`;
+            } else {
+              let className = getCheckboxDecorationKind(matchedMarker);
+              const innerText = matchedMarker.length >= 3 ? matchedMarker.slice(1, -1) : matchedMarker;
+              checkboxToken.content = `<span class="task-list-item-checkbox custom-checkbox ${className}">${innerText}</span>`;
+            }
+            token.children.unshift(checkboxToken);
+            
+            let classAttrIndex = liOpen.attrIndex("class");
+            if (classAttrIndex < 0) {
+              liOpen.attrPush(["class", "task-list-item"]);
+            } else {
+              const classAttr = liOpen.attrs[classAttrIndex];
+              if (!classAttr[1].includes("task-list-item")) {
+                classAttr[1] = (classAttr[1] + " task-list-item").trim();
+              }
+            }
+
+            // Also add contains-task-list to the parent list so the bullet is hidden
+            let listOpenIndex = liOpenIndex - 1;
+            while (listOpenIndex >= 0 && tokens[listOpenIndex].type !== "bullet_list_open" && tokens[listOpenIndex].type !== "ordered_list_open") {
+              listOpenIndex--;
+            }
+            if (listOpenIndex >= 0) {
+              const listOpen = tokens[listOpenIndex];
+              let listClassAttrIndex = listOpen.attrIndex("class");
+              if (listClassAttrIndex < 0) {
+                listOpen.attrPush(["class", "contains-task-list"]);
+              } else {
+                const listClassAttr = listOpen.attrs[listClassAttrIndex];
+                if (!listClassAttr[1].includes("contains-task-list")) {
+                  listClassAttr[1] = (listClassAttr[1] + " contains-task-list").trim();
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
 }

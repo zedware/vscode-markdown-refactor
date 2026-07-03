@@ -73,11 +73,11 @@ Preservation examples:
 
 The default checkbox cycle is `⬜ -> ⏳ -> ✅ -> ❌ -> ❗`. The command changes task markers after a Markdown list prefix, such as `- ⬜ item`, `1. ⏳ item`, or `> - ✅ quoted item`.
 
-Plain list items without a task marker are activated by inserting the first configured marker, for example `- item` becomes `- ⬜ item`. Existing legacy bracket tasks always use the bracket cycle `[ ] -> [/] -> [!] -> [-] -> [x]`, even when the configured cycle uses emoji markers. It treats `[X]` as `[x]` when cycling legacy bracket tasks.
+Plain list items without a task marker are activated by inserting the first configured marker, for example `- item` becomes `- ⬜ item`. Existing legacy bracket tasks always use the bracket cycle `[ ] -> [/] -> [x] -> [-] -> [!]`, even when the configured cycle uses emoji markers. It treats `[X]` as `[x]` when cycling legacy bracket tasks.
 
 `markdownRefactor.checkboxCycle` must contain at least two unique markers. Markers can be bracketed strings, for example `[ ]`, or compact emoji/text markers without spaces, for example `⬜`.
 
-Checkbox decoration is enabled by `markdownRefactor.decorateCheckboxes`. It highlights bracket-style task markers in Markdown editors only, using marker meanings: `[ ]` todo, `[/]` in progress, `[-]` cancelled, `[x]`/`[X]` done, `[!]` important, and a fallback style for custom non-emoji markers. Emoji markers are not decorated.
+Checkbox decoration is enabled by `markdownRefactor.decorateCheckboxes`. It highlights bracket-style task markers in Markdown editors only, using marker meanings: `[ ]` todo, `[/]` in progress, `[x]`/`[X]` done, `[-]` cancelled, `[!]` important, and a fallback style for custom non-emoji markers. Emoji markers are not decorated.
 
 ## Development
 
@@ -85,7 +85,7 @@ Checkbox decoration is enabled by `markdownRefactor.decorateCheckboxes`. It high
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.2.3.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.2.9.vsix --force
 ```
 
 Use `F5` in VS Code to launch an Extension Development Host.

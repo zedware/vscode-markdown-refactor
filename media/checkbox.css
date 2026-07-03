@@ -1,0 +1,54 @@
+.task-list-item {
+  list-style-type: none;
+}
+
+.task-list-item-checkbox.custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 3px;
+  margin: 0 0.5em 0.25em -1.6em !important;
+  vertical-align: middle;
+  font-size: 0.9em;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.task-list-item-checkbox.custom-checkbox.emoji-checkbox {
+  font-family: inherit;
+  font-size: 1em;
+  background: transparent;
+  border: none;
+}
+
+.task-list-item-checkbox.custom-checkbox.todo {
+  color: #8b949e;
+  background-color: rgba(139, 148, 158, 0.16);
+  border: 1px solid rgba(139, 148, 158, 0.45);
+}
+
+.task-list-item-checkbox.custom-checkbox.done {
+  color: #3fb950;
+  background-color: rgba(63, 185, 80, 0.16);
+  border: 1px solid rgba(63, 185, 80, 0.45);
+}
+
+.task-list-item-checkbox.custom-checkbox.progress {
+  color: #d29922;
+  background-color: rgba(210, 153, 34, 0.18);
+  border: 1px solid rgba(210, 153, 34, 0.45);
+}
+
+.task-list-item-checkbox.custom-checkbox.cancelled {
+  color: #f85149;
+  background-color: rgba(248, 81, 73, 0.14);
+  border: 1px solid rgba(248, 81, 73, 0.42);
+}
+
+.task-list-item-checkbox.custom-checkbox.important {
+  color: #ff7b72;
+  background-color: rgba(255, 123, 114, 0.18);
+  border: 1px solid rgba(255, 123, 114, 0.48);
+}

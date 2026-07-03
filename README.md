@@ -37,7 +37,7 @@ Available actions:
 
 Spacing and punctuation actions work on the current selection. If nothing is selected, they apply to the whole Markdown document. Punctuation conversion asks for confirmation before changing the whole document and preserves leading Markdown syntax such as headings and list markers.
 
-Task marker cycling works on the list line at the cursor, including multiple cursors. Default shortcut: `Ctrl+Alt+W`. Plain list items are activated with the first configured emoji marker, while existing bracket-style task markers keep cycling through `[ ]`, `[/]`, `[!]`, `[-]`, `[x]`.
+Task marker cycling works on the list line at the cursor, including multiple cursors. Default shortcut: `Ctrl+Alt+W`. Plain list items are activated with the first configured emoji marker, while existing bracket-style task markers keep cycling through `[ ]`, `[/]`, `[x]`, `[-]`, `[!]`.
 
 Settings:
 
@@ -67,7 +67,7 @@ You can use the legacy bracket cycle too:
 
 ```json
 {
-  "markdownRefactor.checkboxCycle": ["[ ]", "[/]", "[!]", "[-]", "[x]"]
+  "markdownRefactor.checkboxCycle": ["[ ]", "[/]", "[x]", "[-]", "[!]"]
 }
 ```
 
@@ -91,5 +91,5 @@ cd vscode-markdown-refactor
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.2.3.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.2.9.vsix --force
 ```

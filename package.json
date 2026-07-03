@@ -2,7 +2,7 @@
   "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
   "description": "Refactor Markdown with extract, spacing, and punctuation conversion actions.",
-  "version": "0.2.4",
+  "version": "0.2.9",
   "publisher": "zedware",
   "license": "MIT",
   "repository": {
@@ -27,6 +27,10 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "media/checkbox.css"
+    ],
     "commands": [
       {
         "command": "markdownRefactor.showActions",
@@ -166,6 +170,7 @@
     "vscode:prepublish": "npm run compile"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.14.10",
     "@types/vscode": "^1.90.0",
     "typescript": "^5.5.3"
