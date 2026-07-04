@@ -85,7 +85,7 @@ Checkbox decoration is enabled by `markdownRefactor.decorateCheckboxes`. It high
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.2.9.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.3.0.vsix --force
 ```
 
 Use `F5` in VS Code to launch an Extension Development Host.

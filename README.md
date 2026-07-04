@@ -9,6 +9,7 @@ Markdown Refactor is a VS Code extension for small Markdown editing refactors:
 - Convert punctuation between half-width and full-width forms.
 - Cycle Markdown task markers through a configurable state list.
 - Highlight bracket-style task checkbox states while editing raw Markdown.
+- Install Markdown Preview Enhanced support for custom task marker rendering.
 
 Repository: [zedware/vscode-markdown-refactor](https://github.com/zedware/vscode-markdown-refactor)
 
@@ -34,6 +35,7 @@ Available actions:
 4. Convert punctuation to full width
 5. Convert punctuation to half width
 6. Cycle task checkbox
+7. Install Markdown Preview Enhanced support
 
 Spacing and punctuation actions work on the current selection. If nothing is selected, they apply to the whole Markdown document. Punctuation conversion asks for confirmation before changing the whole document and preserves leading Markdown syntax such as headings and list markers.
 
@@ -73,6 +75,23 @@ You can use the legacy bracket cycle too:
 
 Decoration highlighting can be turned on or off with `markdownRefactor.decorateCheckboxes`. Bracket-style markers use built-in status colors, custom non-emoji markers use a fallback highlight style, and emoji markers are not decorated.
 
+### Markdown Preview Enhanced
+
+Markdown Preview Enhanced uses its own `.crossnote` customization files. To render Markdown Refactor task markers in MPE previews, run:
+
+```text
+Markdown: Install Markdown Preview Enhanced Support
+```
+
+The command copies packaged templates into the selected notes folder:
+
+```text
+.crossnote/parser.js
+.crossnote/style.less
+```
+
+It asks before overwriting existing files. Run it once for each notes folder where you want MPE preview support, then reload the MPE preview.
+
 ## Installation
 
 From VS Code Marketplace:
@@ -91,5 +110,5 @@ cd vscode-markdown-refactor
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.2.9.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.3.0.vsix --force
 ```

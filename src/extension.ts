@@ -15,6 +15,10 @@ interface CheckboxTokenMatch {
   end: number;
 }
 
+interface CrossnoteInstallTarget extends vscode.QuickPickItem {
+  fsPath: string;
+}
+
 const cjkLetterCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]";
 const fullWidthBoundaryCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}\\u3000-\\u303F\\uFF01-\\uFF65]";
 const englishLetterCharacter = "[A-Za-z]";
@@ -114,6 +118,8 @@ const checkboxTokenPattern = /^(?:\[[^\]\r\n]*\]|\S+)$/u;
 const emojiMarkerPattern = /\p{Extended_Pictographic}/u;
 const taskLinePrefixPattern = /^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-+*]|\d+[.)])[ \t]+/;
 const checkboxDecorationTypes = new Map<CheckboxDecorationKind, vscode.TextEditorDecorationType>();
+const mpeCrossnoteTemplateDirectory = "mpe-crossnote";
+const mpeCrossnoteTemplateFiles = ["parser.js", "style.less"];
 
 export function activate(context: vscode.ExtensionContext) {
   initializeCheckboxDecorations(context);
@@ -146,6 +152,10 @@ export function activate(context: vscode.ExtensionContext) {
     "markdownRefactor.cycleTaskCheckbox",
     cycleTaskCheckbox
   );
+  const installMpeSupportDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.installMarkdownPreviewEnhancedSupport",
+    () => installMarkdownPreviewEnhancedSupport(context)
+  );
   const activeEditorDisposable = vscode.window.onDidChangeActiveTextEditor(() => {
     updateVisibleCheckboxDecorations();
   });
@@ -171,6 +181,7 @@ export function activate(context: vscode.ExtensionContext) {
     convertPunctuationToFullWidthDisposable,
     convertPunctuationToHalfWidthDisposable,
     cycleTaskCheckboxDisposable,
+    installMpeSupportDisposable,
     activeEditorDisposable,
     documentChangeDisposable,
     configurationChangeDisposable
@@ -224,6 +235,11 @@ async function showRefactorActions() {
       label: "Cycle task checkbox",
       description: "Replace the task checkbox with the next configured state",
       command: "markdownRefactor.cycleTaskCheckbox"
+    },
+    {
+      label: "Install Markdown Preview Enhanced support",
+      description: "Copy task marker preview templates into a .crossnote folder",
+      command: "markdownRefactor.installMarkdownPreviewEnhancedSupport"
     }
   ];
 
@@ -331,6 +347,81 @@ async function convertPunctuationToHalfWidth() {
     "No full-width punctuation changes needed.",
     true
   );
+}
+
+async function installMarkdownPreviewEnhancedSupport(context: vscode.ExtensionContext) {
+  const targetRoot = await pickCrossnoteInstallTarget();
+  if (!targetRoot) {
+    return;
+  }
+
+  const targetDirectory = vscode.Uri.file(path.join(targetRoot, ".crossnote"));
+  const existingFiles: string[] = [];
+  for (const fileName of mpeCrossnoteTemplateFiles) {
+    if (await fileExists(vscode.Uri.joinPath(targetDirectory, fileName))) {
+      existingFiles.push(fileName);
+    }
+  }
+
+  if (existingFiles.length > 0) {
+    const choice = await vscode.window.showWarningMessage(
+      `Overwrite existing Markdown Preview Enhanced files in ${targetDirectory.fsPath}: ${existingFiles.join(", ")}?`,
+      { modal: true },
+      "Overwrite"
+    );
+
+    if (choice !== "Overwrite") {
+      return;
+    }
+  }
+
+  await vscode.workspace.fs.createDirectory(targetDirectory);
+  for (const fileName of mpeCrossnoteTemplateFiles) {
+    const sourceUri = vscode.Uri.joinPath(context.extensionUri, mpeCrossnoteTemplateDirectory, fileName);
+    const targetUri = vscode.Uri.joinPath(targetDirectory, fileName);
+    const content = await vscode.workspace.fs.readFile(sourceUri);
+    await vscode.workspace.fs.writeFile(targetUri, content);
+  }
+
+  vscode.window.showInformationMessage(
+    `Installed Markdown Preview Enhanced support in ${targetDirectory.fsPath}. Reload the MPE preview to apply it.`
+  );
+}
+
+async function pickCrossnoteInstallTarget(): Promise<string | undefined> {
+  const targets = new Map<string, CrossnoteInstallTarget>();
+  const activeDocument = vscode.window.activeTextEditor?.document;
+
+  if (activeDocument && activeDocument.uri.scheme === "file" && !activeDocument.isUntitled) {
+    const activeDirectory = path.dirname(activeDocument.uri.fsPath);
+    targets.set(activeDirectory, {
+      label: "Current file folder",
+      description: activeDirectory,
+      fsPath: activeDirectory
+    });
+  }
+
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    targets.set(folder.uri.fsPath, {
+      label: `Workspace: ${folder.name}`,
+      description: folder.uri.fsPath,
+      fsPath: folder.uri.fsPath
+    });
+  }
+
+  const items = [...targets.values()];
+  if (items.length === 0) {
+    vscode.window.showWarningMessage(
+      "Open a Markdown file or workspace folder before installing Markdown Preview Enhanced support."
+    );
+    return undefined;
+  }
+
+  const selection = await vscode.window.showQuickPick(items, {
+    placeHolder: "Install Markdown Preview Enhanced support into which folder?"
+  });
+
+  return selection?.fsPath;
 }
 
 async function cycleTaskCheckbox() {
