@@ -44,12 +44,12 @@
       },
       {
         "command": "markdownRefactor.spaceCjkAndEnglish",
-        "title": "Markdown: Space CJK and English",
+        "title": "Markdown: Space CJK, English, and Numbers",
         "category": "Markdown"
       },
       {
         "command": "markdownRefactor.spaceCjkAndEnglishWithPunctuation",
-        "title": "Markdown: Space CJK and English with Punctuation",
+        "title": "Markdown: Space CJK, English, Numbers, and Punctuation",
         "category": "Markdown"
       },
       {

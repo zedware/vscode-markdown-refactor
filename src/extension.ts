@@ -17,26 +17,33 @@ interface CheckboxTokenMatch {
 
 const cjkLetterCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}]";
 const fullWidthBoundaryCharacter = "[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}\\u3000-\\u303F\\uFF01-\\uFF65]";
-const halfWidthWordCharacter = "[A-Za-z0-9]";
+const englishLetterCharacter = "[A-Za-z]";
+const englishWordToken = "[A-Za-z][A-Za-z0-9]*";
+const halfWidthTextCharacter = "[A-Za-z0-9]";
+const numericRunToken = "[0-9]+(?:[.,][0-9]+)*%?";
 const halfWidthPunctuationCharacter = "[,.;:!?]";
-const cjkBeforeHalfWidthWord = new RegExp(
-  `(${cjkLetterCharacter})(${halfWidthWordCharacter})`,
+const cjkBeforeHalfWidthText = new RegExp(
+  "(" + cjkLetterCharacter + ")(" + halfWidthTextCharacter + ")",
   "gu"
 );
-const halfWidthWordBeforeCjk = new RegExp(
-  `(${halfWidthWordCharacter})(${cjkLetterCharacter})`,
+const halfWidthTextBeforeCjk = new RegExp(
+  "([A-Za-z0-9%])(" + cjkLetterCharacter + ")",
+  "gu"
+);
+const numericRunBeforeEnglishWord = new RegExp(
+  "(?<![A-Za-z])(" + numericRunToken + ")(" + englishLetterCharacter + ")",
   "gu"
 );
 const halfWidthPunctuationBeforeWordNearFullWidth = new RegExp(
-  `(${halfWidthPunctuationCharacter})(${halfWidthWordCharacter}+)(?=${fullWidthBoundaryCharacter})`,
+  "(" + halfWidthPunctuationCharacter + ")(" + englishWordToken + ")(?=" + fullWidthBoundaryCharacter + ")",
   "gu"
 );
-const fullWidthBeforeHalfWidthWord = new RegExp(
-  `(${fullWidthBoundaryCharacter})(${halfWidthWordCharacter})`,
+const fullWidthBeforeEnglishWord = new RegExp(
+  "(" + fullWidthBoundaryCharacter + ")(" + englishLetterCharacter + ")",
   "gu"
 );
-const halfWidthWordBeforeFullWidth = new RegExp(
-  `(${halfWidthWordCharacter})(${fullWidthBoundaryCharacter})`,
+const englishWordBeforeFullWidth = new RegExp(
+  "(" + englishWordToken + ")(" + fullWidthBoundaryCharacter + ")",
   "gu"
 );
 const halfWidthToFullWidthPunctuation = new Map<string, string>([
@@ -194,12 +201,12 @@ async function showRefactorActions() {
       command: "markdownRefactor.extractSelectionToFile"
     },
     {
-      label: "Space CJK and English words",
-      description: "Add spaces at CJK/full-width and English word boundaries",
+      label: "Space CJK, English words, and numbers",
+      description: "Add spaces around CJK/full-width text, English words, and numbers",
       command: "markdownRefactor.spaceCjkAndEnglish"
     },
     {
-      label: "Space CJK and English words with punctuation",
+      label: "Space CJK, English words, and numbers with punctuation",
       description: "Also separates immediate prefix/suffix punctuation",
       command: "markdownRefactor.spaceCjkAndEnglishWithPunctuation"
     },
@@ -300,13 +307,13 @@ async function extractSelectionToFile() {
 }
 
 async function spaceCjkAndEnglish() {
-  await formatCurrentMarkdownText(spaceBasicMixedWidthText, "No CJK/English spacing changes needed.");
+  await formatCurrentMarkdownText(spaceBasicMixedWidthText, "No CJK/English/number spacing changes needed.");
 }
 
 async function spaceCjkAndEnglishWithPunctuation() {
   await formatCurrentMarkdownText(
     spacePunctuationAwareMixedWidthText,
-    "No CJK/English punctuation spacing changes needed."
+    "No CJK/English/number punctuation spacing changes needed."
   );
 }
 
@@ -670,7 +677,7 @@ async function formatCurrentMarkdownText(
 
   const document = editor.document;
   if (document.languageId !== "markdown") {
-    vscode.window.showWarningMessage("Open a Markdown file before spacing CJK and English text.");
+    vscode.window.showWarningMessage("Open a Markdown file before spacing CJK, English, and number text.");
     return;
   }
 
@@ -760,15 +767,16 @@ function makeReplacementLink(sourceUri: vscode.Uri, targetUri: vscode.Uri): stri
 
 function spaceBasicMixedWidthText(value: string): string {
   return value
-    .replace(cjkBeforeHalfWidthWord, "$1 $2")
-    .replace(halfWidthWordBeforeCjk, "$1 $2");
+    .replace(cjkBeforeHalfWidthText, "$1 $2")
+    .replace(halfWidthTextBeforeCjk, "$1 $2")
+    .replace(numericRunBeforeEnglishWord, "$1 $2");
 }
 
 function spacePunctuationAwareMixedWidthText(value: string): string {
-  return value
+  return spaceBasicMixedWidthText(value)
     .replace(halfWidthPunctuationBeforeWordNearFullWidth, "$1 $2")
-    .replace(fullWidthBeforeHalfWidthWord, "$1 $2")
-    .replace(halfWidthWordBeforeFullWidth, "$1 $2");
+    .replace(fullWidthBeforeEnglishWord, "$1 $2")
+    .replace(englishWordBeforeFullWidth, "$1 $2");
 }
 
 function makeCharacterPattern(characters: Iterable<string>): RegExp {

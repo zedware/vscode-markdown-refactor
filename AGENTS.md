@@ -14,7 +14,7 @@ It opens a Quick Pick action launcher. Keep new refactors behind this launcher u
 
 - `markdownRefactor.showActions`: opens the action launcher and owns `Ctrl+Alt+M`.
 - `markdownRefactor.extractSelectionToFile`: extracts selected Markdown into a new file and replaces the selection with a link.
-- `markdownRefactor.spaceCjkAndEnglish`: adds spaces only between CJK letters and half-width English/numbers.
+- `markdownRefactor.spaceCjkAndEnglish`: adds spaces between CJK/full-width text, English words, and standalone numbers.
 - `markdownRefactor.spaceCjkAndEnglishWithPunctuation`: also handles immediate punctuation around half-width words.
 - `markdownRefactor.convertPunctuationToFullWidth`: converts common half-width punctuation to full-width punctuation.
 - `markdownRefactor.convertPunctuationToHalfWidth`: converts common full-width punctuation to half-width punctuation.
