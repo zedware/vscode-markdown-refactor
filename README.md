@@ -110,5 +110,5 @@ cd vscode-markdown-refactor
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.3.0.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.3.1.vsix --force
 ```

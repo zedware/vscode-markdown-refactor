@@ -207,51 +207,70 @@ async function showRefactorActions() {
 
   const actions: RefactorAction[] = [
     {
-      label: "Extract selection to a single Markdown file",
+      label: "1. Extract selection to a single Markdown file",
       description: "Move selected text into a new linked .md file",
       command: "markdownRefactor.extractSelectionToFile"
     },
     {
-      label: "Space CJK, English words, and numbers",
+      label: "2. Space CJK, English words, and numbers",
       description: "Add spaces around CJK/full-width text, English words, and numbers",
       command: "markdownRefactor.spaceCjkAndEnglish"
     },
     {
-      label: "Space CJK, English words, and numbers with punctuation",
+      label: "3. Space CJK, English words, and numbers with punctuation",
       description: "Also separates immediate prefix/suffix punctuation",
       command: "markdownRefactor.spaceCjkAndEnglishWithPunctuation"
     },
     {
-      label: "Convert punctuation to full width",
+      label: "4. Convert punctuation to full width",
       description: "Use CJK/full-width punctuation marks",
       command: "markdownRefactor.convertPunctuationToFullWidth"
     },
     {
-      label: "Convert punctuation to half width",
+      label: "5. Convert punctuation to half width",
       description: "Use English/half-width punctuation marks",
       command: "markdownRefactor.convertPunctuationToHalfWidth"
     },
     {
-      label: "Cycle task checkbox",
+      label: "6. Cycle task checkbox",
       description: "Replace the task checkbox with the next configured state",
       command: "markdownRefactor.cycleTaskCheckbox"
     },
     {
-      label: "Install Markdown Preview Enhanced support",
+      label: "7. Install Markdown Preview Enhanced support",
       description: "Copy task marker preview templates into a .crossnote folder",
       command: "markdownRefactor.installMarkdownPreviewEnhancedSupport"
     }
   ];
 
-  const selection = await vscode.window.showQuickPick(actions, {
-    placeHolder: "Choose a Markdown refactor action"
+  const quickPick = vscode.window.createQuickPick<RefactorAction>();
+  quickPick.items = actions;
+  quickPick.placeholder = "Choose a Markdown refactor action (type a number to execute)";
+
+  quickPick.onDidChangeValue(value => {
+    const match = value.match(/^(\d+)$/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      const action = actions.find(a => a.label.startsWith(`${num}.`));
+      if (action) {
+        quickPick.hide();
+        vscode.commands.executeCommand(action.command);
+        quickPick.dispose();
+      }
+    }
   });
 
-  if (!selection) {
-    return;
-  }
+  quickPick.onDidAccept(() => {
+    const selection = quickPick.selectedItems[0];
+    if (selection) {
+      quickPick.hide();
+      vscode.commands.executeCommand(selection.command);
+    }
+    quickPick.dispose();
+  });
 
-  await vscode.commands.executeCommand(selection.command);
+  quickPick.onDidHide(() => quickPick.dispose());
+  quickPick.show();
 }
 
 async function extractSelectionToFile() {
