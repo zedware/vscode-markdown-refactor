@@ -19,6 +19,8 @@ It opens a Quick Pick action launcher. Keep new refactors behind this launcher u
 - `markdownRefactor.convertPunctuationToFullWidth`: converts common half-width punctuation to full-width punctuation.
 - `markdownRefactor.convertPunctuationToHalfWidth`: converts common full-width punctuation to half-width punctuation.
 - `markdownRefactor.cycleTaskCheckbox`: cycles a Markdown task checkbox through `markdownRefactor.checkboxCycle` and owns `Ctrl+Alt+W`.
+- `markdownRefactor.unifyListFormat`: unifies list markers (e.g., `-`, `+`, `1.`) across selected lines to a user-specified string.
+- `markdownRefactor.unifyTrailingPunctuation`: unifies trailing punctuation (e.g., `.`, `;`) across selected lines to user-specified characters.
 
 ## Formatting Rules
 
@@ -85,7 +87,7 @@ Checkbox decoration is enabled by `markdownRefactor.decorateCheckboxes`. It high
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.3.1.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.3.2.vsix --force
 ```
 
 Use `F5` in VS Code to launch an Extension Development Host.

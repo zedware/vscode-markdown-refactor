@@ -152,6 +152,14 @@ export function activate(context: vscode.ExtensionContext) {
     "markdownRefactor.cycleTaskCheckbox",
     cycleTaskCheckbox
   );
+  const unifyListFormatDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.unifyListFormat",
+    unifyListFormat
+  );
+  const unifyTrailingPunctuationDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.unifyTrailingPunctuation",
+    unifyTrailingPunctuation
+  );
   const installMpeSupportDisposable = vscode.commands.registerCommand(
     "markdownRefactor.installMarkdownPreviewEnhancedSupport",
     () => installMarkdownPreviewEnhancedSupport(context)
@@ -181,6 +189,8 @@ export function activate(context: vscode.ExtensionContext) {
     convertPunctuationToFullWidthDisposable,
     convertPunctuationToHalfWidthDisposable,
     cycleTaskCheckboxDisposable,
+    unifyListFormatDisposable,
+    unifyTrailingPunctuationDisposable,
     installMpeSupportDisposable,
     activeEditorDisposable,
     documentChangeDisposable,
@@ -237,7 +247,17 @@ async function showRefactorActions() {
       command: "markdownRefactor.cycleTaskCheckbox"
     },
     {
-      label: "7. Install Markdown Preview Enhanced support",
+      label: "7. Unify list format",
+      description: "Unify the list marker format for selected lines",
+      command: "markdownRefactor.unifyListFormat"
+    },
+    {
+      label: "8. Unify trailing punctuation",
+      description: "Unify the ending punctuation for selected lines",
+      command: "markdownRefactor.unifyTrailingPunctuation"
+    },
+    {
+      label: "9. Install Markdown Preview Enhanced support",
       description: "Copy task marker preview templates into a .crossnote folder",
       command: "markdownRefactor.installMarkdownPreviewEnhancedSupport"
     }
@@ -1103,6 +1123,135 @@ function customTaskListsPlugin(md: any) {
               }
             }
           }
+        }
+      }
+    }
+  });
+}
+
+async function unifyListFormat() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const document = editor.document;
+  if (document.languageId !== "markdown") {
+    vscode.window.showWarningMessage("Open a Markdown file before running this command.");
+    return;
+  }
+
+  const selection = editor.selection;
+  if (selection.isEmpty) {
+    vscode.window.showInformationMessage("Select some lines to unify their list format.");
+    return;
+  }
+
+  const newMarker = await vscode.window.showInputBox({
+    prompt: "Enter the new list marker (e.g., '-', '+', '*', '1.', '#')",
+    placeHolder: "-",
+  });
+
+  if (newMarker === undefined) {
+    return;
+  }
+
+  const markerStr = newMarker.trim();
+
+  await editor.edit((editBuilder) => {
+    const startLine = selection.start.line;
+    const endLine = selection.end.line;
+
+    for (let i = startLine; i <= endLine; i++) {
+      const line = document.lineAt(i);
+      const text = line.text;
+      
+      const match = text.match(/^(\s*)([-+*]|\d+[\.)]|#+)(\s+)(.*)$/);
+      
+      if (match) {
+        const replacement = markerStr ? `${match[1]}${markerStr}${match[3]}${match[4]}` : `${match[1]}${match[4]}`;
+        editBuilder.replace(line.range, replacement);
+      } else if (text.trim().length > 0 && markerStr) {
+        const wsMatch = text.match(/^(\s*)(.*)$/);
+        if (wsMatch) {
+          const replacement = `${wsMatch[1]}${markerStr} ${wsMatch[2]}`;
+          editBuilder.replace(line.range, replacement);
+        }
+      }
+    }
+  });
+}
+
+async function unifyTrailingPunctuation() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const document = editor.document;
+  if (document.languageId !== "markdown") {
+    vscode.window.showWarningMessage("Open a Markdown file before running this command.");
+    return;
+  }
+
+  const selection = editor.selection;
+  if (selection.isEmpty) {
+    vscode.window.showInformationMessage("Select some lines to unify their trailing punctuation.");
+    return;
+  }
+
+  const puncStr = await vscode.window.showInputBox({
+    prompt: "Enter trailing punctuation (e.g. '.', ';', ',.'，'，。')",
+  });
+
+  if (puncStr === undefined) {
+    return;
+  }
+
+  const chars = Array.from(puncStr.trim());
+  let normalPunc = "";
+  let lastPunc = "";
+
+  if (chars.length === 0) {
+    normalPunc = "";
+    lastPunc = "";
+  } else if (chars.length === 1) {
+    normalPunc = chars[0];
+    lastPunc = chars[0];
+  } else {
+    normalPunc = chars[0];
+    lastPunc = chars[1];
+  }
+
+  const trailingPuncRegex = /[.,;:!?。，；：！？]+(\s*)$/;
+
+  await editor.edit((editBuilder) => {
+    const startLine = selection.start.line;
+    const endLine = selection.end.line;
+
+    for (let i = startLine; i <= endLine; i++) {
+      const line = document.lineAt(i);
+      const text = line.text;
+      
+      if (text.trim().length === 0) {
+        continue;
+      }
+
+      const targetPunc = i === endLine ? lastPunc : normalPunc;
+
+      const match = text.match(trailingPuncRegex);
+      if (match) {
+        const trailingWs = match[1];
+        const baseText = text.substring(0, match.index);
+        editBuilder.replace(line.range, `${baseText}${targetPunc}${trailingWs}`);
+      } else {
+        const wsMatch = text.match(/(\s*)$/);
+        if (wsMatch) {
+          const trailingWs = wsMatch[1];
+          const baseText = text.substring(0, text.length - trailingWs.length);
+          editBuilder.replace(line.range, `${baseText}${targetPunc}${trailingWs}`);
+        } else {
+          editBuilder.replace(line.range, `${text}${targetPunc}`);
         }
       }
     }

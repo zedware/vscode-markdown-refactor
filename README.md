@@ -8,6 +8,8 @@ Markdown Refactor is a VS Code extension for small Markdown editing refactors:
 - Add spaces between CJK/full-width text, English words, and numbers.
 - Convert punctuation between half-width and full-width forms.
 - Cycle Markdown task markers through a configurable state list.
+- Unify the list marker format for selected lines.
+- Unify the ending punctuation for selected lines.
 - Highlight bracket-style task checkbox states while editing raw Markdown.
 - Install Markdown Preview Enhanced support for custom task marker rendering.
 
@@ -35,7 +37,11 @@ Available actions:
 4. Convert punctuation to full width
 5. Convert punctuation to half width
 6. Cycle task checkbox
-7. Install Markdown Preview Enhanced support
+7. Unify list format
+8. Unify trailing punctuation
+9. Install Markdown Preview Enhanced support
+
+You can type the number of the action in the Quick Pick input box to execute it immediately.
 
 Spacing and punctuation actions work on the current selection. If nothing is selected, they apply to the whole Markdown document. Punctuation conversion asks for confirmation before changing the whole document and preserves leading Markdown syntax such as headings and list markers.
 
@@ -110,5 +116,5 @@ cd vscode-markdown-refactor
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.3.1.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.3.2.vsix --force
 ```

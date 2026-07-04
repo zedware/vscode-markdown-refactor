@@ -2,7 +2,7 @@
   "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
   "description": "Refactor Markdown with extract, spacing, and punctuation conversion actions.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "publisher": "zedware",
   "license": "MIT",
   "repository": {
@@ -69,6 +69,16 @@
         "category": "Markdown"
       },
       {
+        "command": "markdownRefactor.unifyListFormat",
+        "title": "Markdown: Unify List Format",
+        "category": "Markdown"
+      },
+      {
+        "command": "markdownRefactor.unifyTrailingPunctuation",
+        "title": "Markdown: Unify Trailing Punctuation",
+        "category": "Markdown"
+      },
+      {
         "command": "markdownRefactor.installMarkdownPreviewEnhancedSupport",
         "title": "Markdown: Install Markdown Preview Enhanced Support",
         "category": "Markdown"
@@ -110,6 +120,14 @@
         {
           "command": "markdownRefactor.cycleTaskCheckbox",
           "when": "editorLangId == markdown"
+        },
+        {
+          "command": "markdownRefactor.unifyListFormat",
+          "when": "editorLangId == markdown && editorHasSelection"
+        },
+        {
+          "command": "markdownRefactor.unifyTrailingPunctuation",
+          "when": "editorLangId == markdown && editorHasSelection"
         },
         {
           "command": "markdownRefactor.installMarkdownPreviewEnhancedSupport"
