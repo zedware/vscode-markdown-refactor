@@ -31,17 +31,20 @@ Ctrl+Alt+M
 
 Available actions:
 
-1. Extract selection to a single Markdown file
-2. Space CJK, English words, and numbers
-3. Space CJK, English words, numbers, and punctuation
-4. Convert punctuation to full width
-5. Convert punctuation to half width
-6. Cycle task checkbox
-7. Unify list format
-8. Unify trailing punctuation
-9. Install Markdown Preview Enhanced support
+a. Insert timestamp
+b. Extract selection to a single Markdown file
+c. Space CJK, English words, and numbers
+d. Space CJK, English words, numbers, and punctuation
+e. Convert punctuation to full width
+f. Convert punctuation to half width
+g. Cycle task checkbox
+h. Unify list format
+i. Unify trailing punctuation
+j. Install Markdown Preview Enhanced support
 
-You can type the number of the action in the Quick Pick input box to execute it immediately.
+You can type the letter of the action in the Quick Pick input box to execute it immediately.
+
+Timestamp insertion writes the current local date/time at each cursor or replaces each selection. Available formats are full timestamp (`YYYY-MM-DD HH:mm:ss`), date only (`YYYY-MM-DD`), and time only (`HH:mm:ss`).
 
 Spacing and punctuation actions work on the current selection. If nothing is selected, they apply to the whole Markdown document. Punctuation conversion asks for confirmation before changing the whole document and preserves leading Markdown syntax such as headings and list markers.
 
@@ -116,5 +119,5 @@ cd vscode-markdown-refactor
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.3.2.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.3.3.vsix --force
 ```

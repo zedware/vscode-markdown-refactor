@@ -3,10 +3,15 @@ import * as vscode from "vscode";
 
 type LinkStyle = "markdown" | "embed" | "wiki";
 type TextFormatter = (value: string) => string;
+type TimestampFormat = "date" | "time" | "datetime";
 type CheckboxDecorationKind = "todo" | "progress" | "cancelled" | "done" | "important" | "custom";
 
 interface RefactorAction extends vscode.QuickPickItem {
   command: string;
+}
+
+interface TimestampFormatItem extends vscode.QuickPickItem {
+  format: TimestampFormat;
 }
 
 interface CheckboxTokenMatch {
@@ -128,6 +133,10 @@ export function activate(context: vscode.ExtensionContext) {
     "markdownRefactor.showActions",
     showRefactorActions
   );
+  const insertTimestampDisposable = vscode.commands.registerCommand(
+    "markdownRefactor.insertTimestamp",
+    insertTimestamp
+  );
   const extractDisposable = vscode.commands.registerCommand(
     "markdownRefactor.extractSelectionToFile",
     extractSelectionToFile
@@ -183,6 +192,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     launcherDisposable,
+    insertTimestampDisposable,
     extractDisposable,
     spaceBasicDisposable,
     spaceWithPunctuationDisposable,
@@ -217,47 +227,52 @@ async function showRefactorActions() {
 
   const actions: RefactorAction[] = [
     {
-      label: "1. Extract selection to a single Markdown file",
+      label: "a. Insert timestamp",
+      description: "Choose full timestamp, date only, or time only",
+      command: "markdownRefactor.insertTimestamp"
+    },
+    {
+      label: "b. Extract selection to a single Markdown file",
       description: "Move selected text into a new linked .md file",
       command: "markdownRefactor.extractSelectionToFile"
     },
     {
-      label: "2. Space CJK, English words, and numbers",
+      label: "c. Space CJK, English words, and numbers",
       description: "Add spaces around CJK/full-width text, English words, and numbers",
       command: "markdownRefactor.spaceCjkAndEnglish"
     },
     {
-      label: "3. Space CJK, English words, and numbers with punctuation",
+      label: "d. Space CJK, English words, and numbers with punctuation",
       description: "Also separates immediate prefix/suffix punctuation",
       command: "markdownRefactor.spaceCjkAndEnglishWithPunctuation"
     },
     {
-      label: "4. Convert punctuation to full width",
+      label: "e. Convert punctuation to full width",
       description: "Use CJK/full-width punctuation marks",
       command: "markdownRefactor.convertPunctuationToFullWidth"
     },
     {
-      label: "5. Convert punctuation to half width",
+      label: "f. Convert punctuation to half width",
       description: "Use English/half-width punctuation marks",
       command: "markdownRefactor.convertPunctuationToHalfWidth"
     },
     {
-      label: "6. Cycle task checkbox",
+      label: "g. Cycle task checkbox",
       description: "Replace the task checkbox with the next configured state",
       command: "markdownRefactor.cycleTaskCheckbox"
     },
     {
-      label: "7. Unify list format",
+      label: "h. Unify list format",
       description: "Unify the list marker format for selected lines",
       command: "markdownRefactor.unifyListFormat"
     },
     {
-      label: "8. Unify trailing punctuation",
+      label: "i. Unify trailing punctuation",
       description: "Unify the ending punctuation for selected lines",
       command: "markdownRefactor.unifyTrailingPunctuation"
     },
     {
-      label: "9. Install Markdown Preview Enhanced support",
+      label: "j. Install Markdown Preview Enhanced support",
       description: "Copy task marker preview templates into a .crossnote folder",
       command: "markdownRefactor.installMarkdownPreviewEnhancedSupport"
     }
@@ -265,13 +280,12 @@ async function showRefactorActions() {
 
   const quickPick = vscode.window.createQuickPick<RefactorAction>();
   quickPick.items = actions;
-  quickPick.placeholder = "Choose a Markdown refactor action (type a number to execute)";
+  quickPick.placeholder = "Choose a Markdown refactor action (type a letter to execute)";
 
   quickPick.onDidChangeValue(value => {
-    const match = value.match(/^(\d+)$/);
+    const match = value.trim().toLowerCase().match(/^([a-j])$/);
     if (match) {
-      const num = parseInt(match[1], 10);
-      const action = actions.find(a => a.label.startsWith(`${num}.`));
+      const action = actions.find(a => a.label.startsWith(match[1] + "."));
       if (action) {
         quickPick.hide();
         vscode.commands.executeCommand(action.command);
@@ -291,6 +305,70 @@ async function showRefactorActions() {
 
   quickPick.onDidHide(() => quickPick.dispose());
   quickPick.show();
+}
+
+async function insertTimestamp() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    return;
+  }
+
+  const document = editor.document;
+  if (document.languageId !== "markdown") {
+    vscode.window.showWarningMessage("Open a Markdown file before inserting a timestamp.");
+    return;
+  }
+
+  const formats: TimestampFormatItem[] = [
+    {
+      label: "Date only",
+      description: "2026-01-02",
+      format: "date"
+    },
+    {
+      label: "Time only",
+      description: "13:14:15",
+      format: "time"
+    },
+    {
+      label: "Full timestamp",
+      description: "2026-01-02 13:14:15",
+      format: "datetime"
+    },
+  ];
+
+  const selection = await vscode.window.showQuickPick(formats, {
+    placeHolder: "Choose timestamp format"
+  });
+  if (!selection) {
+    return;
+  }
+
+  const timestamp = formatTimestamp(new Date(), selection.format);
+  await editor.edit((editBuilder) => {
+    for (const selection of editor.selections) {
+      editBuilder.replace(selection, timestamp);
+    }
+  });
+}
+
+function formatTimestamp(date: Date, format: TimestampFormat): string {
+  const datePart = [date.getFullYear(), pad2(date.getMonth() + 1), pad2(date.getDate())].join("-");
+  const timePart = [pad2(date.getHours()), pad2(date.getMinutes()), pad2(date.getSeconds())].join(":");
+
+  if (format === "date") {
+    return datePart;
+  }
+
+  if (format === "time") {
+    return timePart;
+  }
+
+  return datePart + " " + timePart;
+}
+
+function pad2(value: number): string {
+  return value.toString().padStart(2, "0");
 }
 
 async function extractSelectionToFile() {

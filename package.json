@@ -2,7 +2,7 @@
   "name": "vscode-markdown-refactor",
   "displayName": "Markdown Refactor",
   "description": "Refactor Markdown with extract, spacing, and punctuation conversion actions.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "publisher": "zedware",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,8 @@
     "onCommand:markdownRefactor.convertPunctuationToFullWidth",
     "onCommand:markdownRefactor.convertPunctuationToHalfWidth",
     "onCommand:markdownRefactor.cycleTaskCheckbox",
-    "onCommand:markdownRefactor.installMarkdownPreviewEnhancedSupport"
+    "onCommand:markdownRefactor.installMarkdownPreviewEnhancedSupport",
+    "onCommand:markdownRefactor.insertTimestamp"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -33,6 +34,11 @@
       "media/checkbox.css"
     ],
     "commands": [
+      {
+        "command": "markdownRefactor.insertTimestamp",
+        "title": "Markdown: Insert Timestamp",
+        "category": "Markdown"
+      },
       {
         "command": "markdownRefactor.showActions",
         "title": "Markdown: Refactor...",
@@ -93,6 +99,10 @@
         }
       ],
       "commandPalette": [
+        {
+          "command": "markdownRefactor.insertTimestamp",
+          "when": "editorLangId == markdown"
+        },
         {
           "command": "markdownRefactor.showActions",
           "when": "editorLangId == markdown"
