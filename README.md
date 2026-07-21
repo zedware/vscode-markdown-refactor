@@ -4,6 +4,7 @@
 
 Markdown Refactor is a VS Code extension for small Markdown editing refactors:
 
+- Insert timestamp in different formats.
 - Extract selected Markdown into a new linked file.
 - Add spaces between CJK/full-width text, English words, and numbers.
 - Convert punctuation between half-width and full-width forms.
@@ -31,16 +32,16 @@ Ctrl+Alt+M
 
 Available actions:
 
-a. Insert timestamp
-b. Extract selection to a single Markdown file
-c. Space CJK, English words, and numbers
-d. Space CJK, English words, numbers, and punctuation
-e. Convert punctuation to full width
-f. Convert punctuation to half width
-g. Cycle task checkbox
-h. Unify list format
-i. Unify trailing punctuation
-j. Install Markdown Preview Enhanced support
+- a. Insert timestamp
+- b. Extract selection to a single Markdown file
+- c. Space CJK, English words, and numbers
+- d. Space CJK, English words, numbers, and punctuation
+- e. Convert punctuation to full width
+- f. Convert punctuation to half width
+- g. Cycle task checkbox
+- h. Unify list format
+- i. Unify trailing punctuation
+- j. Install Markdown Preview Enhanced support
 
 You can type the letter of the action in the Quick Pick input box to execute it immediately.
 
