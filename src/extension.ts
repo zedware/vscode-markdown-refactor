@@ -393,17 +393,18 @@ async function extractSelectionToFile() {
     return;
   }
 
-  const selectedText = document.getText(editor.selection);
+  const originalSelection = editor.selection;
+  const selectedText = document.getText(originalSelection);
   if (!selectedText.trim()) {
     vscode.window.showWarningMessage("The selection is empty.");
     return;
   }
 
-  const suggestedName = suggestFileName(selectedText);
+  const suggestedName = suggestTargetPath(document, originalSelection, selectedText);
   const inputName = await vscode.window.showInputBox({
-    prompt: "New Markdown file name",
+    prompt: "New Markdown path, relative to the current file",
     value: suggestedName,
-    validateInput: validateFileName
+    validateInput: async (value) => validateTargetPath(document.uri, value)
   });
 
   if (!inputName) {
@@ -432,7 +433,7 @@ async function extractSelectionToFile() {
 
   const replacement = makeReplacementLink(document.uri, targetUri);
   await editor.edit((editBuilder) => {
-    editBuilder.replace(editor.selection, replacement);
+    editBuilder.replace(originalSelection, replacement);
   });
 
   await document.save();
@@ -928,15 +929,9 @@ async function formatCurrentMarkdownText(
 }
 
 async function buildTargetUri(sourceUri: vscode.Uri, inputName: string): Promise<vscode.Uri | undefined> {
-  const config = vscode.workspace.getConfiguration("markdownRefactor");
-  const configuredDirectory = config.get<string>("defaultDirectory", "").trim();
   const sourceDirectory = path.dirname(sourceUri.fsPath);
-  const targetDirectory = configuredDirectory
-    ? path.resolve(sourceDirectory, configuredDirectory)
-    : sourceDirectory;
-
-  const normalizedName = inputName.endsWith(".md") ? inputName : `${inputName}.md`;
-  const targetPath = path.resolve(targetDirectory, normalizedName);
+  const targetUri = resolveTargetUri(sourceUri, inputName);
+  const targetPath = targetUri.fsPath;
 
   if (!isPathInside(targetPath, sourceDirectory)) {
     const choice = await vscode.window.showWarningMessage(
@@ -951,7 +946,14 @@ async function buildTargetUri(sourceUri: vscode.Uri, inputName: string): Promise
   }
 
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(targetPath)));
-  return vscode.Uri.file(targetPath);
+  return targetUri;
+}
+
+function resolveTargetUri(sourceUri: vscode.Uri, inputName: string): vscode.Uri {
+  const normalizedName = /\.md$/i.test(inputName.trim())
+    ? inputName.trim()
+    : `${inputName.trim()}.md`;
+  return vscode.Uri.file(path.resolve(path.dirname(sourceUri.fsPath), normalizedName));
 }
 
 function makeReplacementLink(sourceUri: vscode.Uri, targetUri: vscode.Uri): string {
@@ -1053,23 +1055,69 @@ function convertFullWidthPunctuationToHalfWidth(value: string): string {
     });
 }
 
-function suggestFileName(text: string): string {
-  const firstMeaningfulLine = text
+function suggestTargetPath(
+  document: vscode.TextDocument,
+  selection: vscode.Selection,
+  selectedText: string
+): string {
+  const config = vscode.workspace.getConfiguration("markdownRefactor");
+  const configuredDirectory = config
+    .get<string>("defaultDirectory", "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+  const sourceBaseName = path.basename(document.uri.fsPath, path.extname(document.uri.fsPath));
+  const directoryName = makeFileNamePart(sourceBaseName, false) || "extracted";
+  const contextTitle = findNearestMarkdownTitle(document, selection.start.line - 1);
+  const selectedTitle = selectedText
     .split(/\r?\n/)
-    .map((line) => line.replace(/^#+\s*/, "").trim())
+    .map((line) => line.replace(/^\s*(?:#{1,6}|[-+*]|\d+[.)])\s+/, "").trim())
     .find(Boolean);
+  const fileName = makeFileNamePart(contextTitle ?? selectedTitle ?? "Extracted Note") || "Extracted Note";
 
-  const base = slugify(firstMeaningfulLine ?? "extracted-note");
-  return `${base || "extracted-note"}.md`;
+  return [configuredDirectory, directoryName, `${fileName}.md`].filter(Boolean).join("/");
 }
 
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[`*_~[\]()]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
+function findNearestMarkdownTitle(document: vscode.TextDocument, startLine: number): string | undefined {
+  for (let lineNumber = startLine; lineNumber >= 0; lineNumber--) {
+    const line = document.lineAt(lineNumber).text.replace(/^(?:\s*>\s*)+/, "");
+    const heading = line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/);
+    if (heading) {
+      return heading[1];
+    }
+
+    const listItem = line.match(/^\s*(?:[-+*]|\d+[.)])\s+(?:\[[^\]\r\n]*\]\s+)?(.+?)\s*$/);
+    if (listItem) {
+      return listItem[1];
+    }
+  }
+
+  return undefined;
+}
+
+function makeFileNamePart(value: string, titleCase = true): string {
+  const cleaned = value
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[`*_~]/g, "")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/g, "")
+    .slice(0, 80)
+    .trim();
+  const normalized = titleCase
+    ? cleaned
+        .toLocaleLowerCase()
+        .replace(/(^|[\s-])(\p{L})/gu, (_match, prefix: string, letter: string) => {
+          return prefix + letter.toLocaleUpperCase();
+        })
+    : cleaned;
+
+  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(normalized)
+    ? `${normalized} Note`
+    : normalized;
 }
 
 function titleFromFileName(value: string): string {
@@ -1080,11 +1128,52 @@ function titleFromFileName(value: string): string {
 
 function validateFileName(value: string): string | undefined {
   if (!value.trim()) {
-    return "Enter a file name.";
+    return "Enter a Markdown path.";
   }
 
-  if (/[<>:"|?*]/.test(value)) {
-    return "File name cannot contain < > : \" | ? *";
+  const parts = value.trim().split(/[\\/]/);
+  if (parts.some((part) => !part)) {
+    return "Path folders and file name cannot be empty.";
+  }
+
+  if (parts.some((part) => /[<>:"|?*\u0000-\u001F]/.test(part))) {
+    return "Path names cannot contain < > : \" | ? *";
+  }
+
+  if (parts.some((part) => part !== "." && part !== ".." && /[. ]$/.test(part))) {
+    return "Path names cannot end with a dot or space.";
+  }
+
+  const filePart = parts[parts.length - 1].replace(/\.md$/i, "");
+  if (!filePart || filePart === "." || filePart === "..") {
+    return "Enter a Markdown file name.";
+  }
+
+  if (parts.some((part) => /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) {
+    return "That path contains a reserved Windows file name.";
+  }
+
+  return undefined;
+}
+
+async function validateTargetPath(
+  sourceUri: vscode.Uri,
+  value: string
+): Promise<string | vscode.InputBoxValidationMessage | undefined> {
+  const invalidMessage = validateFileName(value);
+  if (invalidMessage) {
+    return invalidMessage;
+  }
+
+  const targetUri = resolveTargetUri(sourceUri, value);
+  if (await fileExists(targetUri)) {
+    const relativePath = path
+      .relative(path.dirname(sourceUri.fsPath), targetUri.fsPath)
+      .replace(/\\/g, "/");
+    return {
+      message: `${relativePath} already exists and will require overwrite confirmation.`,
+      severity: vscode.InputBoxValidationSeverity.Warning
+    };
   }
 
   return undefined;
