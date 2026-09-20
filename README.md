@@ -11,8 +11,8 @@ Markdown Refactor is a VS Code extension for small Markdown editing refactors:
 - Cycle Markdown task markers through a configurable state list.
 - Unify the list marker format for selected lines.
 - Unify the ending punctuation for selected lines.
-- Highlight bracket-style task checkbox states while editing raw Markdown.
 - Install Markdown Preview Enhanced support for custom task marker rendering.
+- Highlight bracket-style task checkbox states while editing raw Markdown.
 
 Repository: [zedware/vscode-markdown-refactor](https://github.com/zedware/vscode-markdown-refactor)
 
@@ -120,5 +120,5 @@ cd vscode-markdown-refactor
 npm install
 npm run compile
 npx @vscode/vsce package
-code --install-extension .\vscode-markdown-refactor-0.3.3.vsix --force
+code --install-extension .\vscode-markdown-refactor-0.3.4.vsix --force
 ```

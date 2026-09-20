@@ -428,7 +428,7 @@ async function extractSelectionToFile() {
     }
   }
 
-  const normalizedText = selectedText.endsWith("\n") ? selectedText : `${selectedText}\n`;
+  const normalizedText = buildExtractedFileContent(targetUri, selectedText);
   await vscode.workspace.fs.writeFile(targetUri, Buffer.from(normalizedText, "utf8"));
 
   const replacement = makeReplacementLink(document.uri, targetUri);
@@ -973,6 +973,18 @@ function makeReplacementLink(sourceUri: vscode.Uri, targetUri: vscode.Uri): stri
   }
 
   return `[${title}](${relativePath})`;
+}
+
+function buildExtractedFileContent(targetUri: vscode.Uri, selectedText: string): string {
+  const title = titleFromFileName(path.basename(targetUri.fsPath, ".md"));
+  const heading = `# ${title}\n\n`;
+  const normalizedText = selectedText.endsWith("\n") ? selectedText : `${selectedText}\n`;
+
+  if (/^\s*#\s+/m.test(normalizedText)) {
+    return normalizedText;
+  }
+
+  return `${heading}${normalizedText}`;
 }
 
 function spaceBasicMixedWidthText(value: string): string {
